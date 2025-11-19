@@ -1,15 +1,6 @@
 // src/app/layout.tsx
 import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-import NavBar from '@/components/NavBar'; // Import the NavBar
-
-const inter = Inter({ subsets: ['latin'] });
-
-export const metadata: Metadata = {
-  title: 'Loud Baby Easy Ops',
-  description: 'Inventory and Operations Management',
-};
+import AppShell from '@/components/AppShell';
 
 export default function RootLayout({
   children,
@@ -18,9 +9,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
-        <NavBar /> {/* Add the NavBar here */}
-        <main>{children}</main>
+      <body className="bg-background">
+        <AppShell>
+            {children}
+        </AppShell>
       </body>
     </html>
   );

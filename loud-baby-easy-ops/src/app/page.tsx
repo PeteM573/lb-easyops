@@ -1,118 +1,95 @@
 // src/app/page.tsx
-'use client'; 
-
-import React, { useState } from 'react';
-import WebhookDeductionModal from '@/components/WebhookDeductionModal';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { PackagePlus, Search, Truck, AlertCircle } from 'lucide-react';
 
-export default function DashboardPage() {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const router = useRouter();
+// Mock data for layout visualization (Replace with your real DB calls later)
+const lowStockCount = 3; 
+const tasksDue = 2;
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-        router.push(`/inventory/search?q=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  const criticalAlerts = [
-    { id: 'item-Honey', message: 'Honey stock is low (4.5 lbs remaining)' },
-    { id: 'reminder-License', message: 'Business License Renewal due in 30 days' }
-  ];
-
-  const sampleOrderItems = [
-    { name: 'Mocha Latte', quantity: 1 },
-    { name: 'Baby Jacket (S)', quantity: 1 },
-    { name: 'Teething Ring', quantity: 1 }
-  ];
-
-  const handleOpenModal = () => setIsModalOpen(true);
-  const handleCloseModal = () => setIsModalOpen(false);
-
+export default function Dashboard() {
   return (
-    <>
-      <WebhookDeductionModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        orderNumber="1234"
-        items={sampleOrderItems}
-      />
+    <div className="space-y-6">
+      
+      {/* 1. Header Section */}
+      <section className="space-y-1">
+        <h2 className="text-2xl font-bold text-foreground">Good Morning! ☕</h2>
+        <p className="text-gray-500">Here is what is happening at Loud Baby today.</p>
+      </section>
 
-      <div className="min-h-screen bg-gray-50 p-8">
-        <header className="mb-10 flex justify-between items-center">
-          <div>
-            <h1 className="text-4xl font-bold text-gray-800">Loud Baby Easy Ops</h1>
-            <p className="text-lg text-gray-500">Dashboard</p>
-          </div>
-          <button
-            onClick={handleOpenModal}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 animate-pulse"
-          >
-            Simulate a Square Sale
-          </button>
-        </header>
+      {/* 2. Critical Alerts (Only show if needed) */}
+      {(lowStockCount > 0 || tasksDue > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {lowStockCount > 0 && (
+                 <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-4">
+                    <div className="p-3 bg-amber-100 text-amber-700 rounded-full">
+                        <AlertCircle size={24} />
+                    </div>
+                    <div>
+                        <p className="font-bold text-amber-900">{lowStockCount} Items Low Stock</p>
+                        <p className="text-sm text-amber-700">Check inventory report</p>
+                    </div>
+                 </div>
+            )}
+        </div>
+      )}
 
-        <main className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {/* Critical Alerts Card */}
-          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Critical Alerts</h2>
-            <div className="space-y-3">
-              {criticalAlerts.map(alert => (
-                <div key={alert.id} className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700">
-                  <p>{alert.message}</p>
+      {/* 3. Quick Actions - The "Buffet" */}
+      <section>
+        <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            
+            {/* Receive Stock */}
+            <Link href="/inventory/receive" className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                <div className="p-4 bg-primary/10 text-primary rounded-full group-hover:scale-110 transition-transform">
+                    <Truck size={28} />
                 </div>
-              ))}
-            </div>
-          </div>
+                <span className="font-medium text-foreground">Receive Stock</span>
+            </Link>
 
-          {/* Tasks Overview Card */}
-          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Tasks Overview</h2>
-            <div className="space-y-2">
-              <p className="text-lg text-gray-600"><span className="font-bold">3</span> Open Tasks</p>
-              <p className="text-lg text-gray-600"><span className="font-bold">1</span> Due Today</p>
-              <button className="mt-4 w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg">View All Tasks</button>
-            </div>
-          </div>
+            {/* Scan Item */}
+            <Link href="/inventory/scan" className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                <div className="p-4 bg-secondary text-secondary-foreground rounded-full group-hover:scale-110 transition-transform">
+                    <Search size={28} />
+                </div>
+                <span className="font-medium text-foreground">Lookup / Scan</span>
+            </Link>
 
-          {/* Inventory Lookup Card */}
-          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Inventory Lookup</h2>
-            <form onSubmit={handleSearch}>
-              <input
-                type="text"
-                placeholder="Search for an item..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-              />
-              <button type="submit" className="mt-4 w-full bg-gray-700 hover:bg-gray-800 text-white font-bold py-2 px-4 rounded-lg">Search</button>
-            </form>
-          </div>
-          
-          {/* Quick Actions Card - UPDATED WITH NEW LINK SYNTAX */}
-          <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <h2 className="text-2xl font-semibold text-gray-700 mb-4">Quick Actions</h2>
-            <div className="space-y-3">
-              <Link
-                href="/inventory/new"
-                className="block w-full text-center bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300"
-              >
-                + Add New Item
-              </Link>
-              <Link
-                href="/inventory/receive"
-                className="block w-full text-center bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300"
-              >
-                Receive Stock
-              </Link>
+             {/* Add Item (Manager) */}
+             <Link href="/inventory/new" className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                <div className="p-4 bg-gray-100 text-gray-600 rounded-full group-hover:scale-110 transition-transform">
+                    <PackagePlus size={28} />
+                </div>
+                <span className="font-medium text-foreground">New Item</span>
+            </Link>
+
+        </div>
+      </section>
+
+      {/* 4. Your Tasks Section */}
+      <section className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-border flex justify-between items-center">
+            <h3 className="font-semibold">My Tasks</h3>
+            <span className="text-xs bg-gray-100 px-2 py-1 rounded-full text-gray-600">2 Pending</span>
+        </div>
+        <div className="divide-y divide-border">
+            {/* Example Task Rows */}
+            <div className="p-4 flex items-center gap-3 hover:bg-gray-50">
+                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" />
+                <div className="flex-1">
+                    <p className="text-sm font-medium">Morning Temp Check</p>
+                    <p className="text-xs text-gray-500">Assigned by Pete</p>
+                </div>
             </div>
-          </div>
-        </main>
-      </div>
-    </>
+            <div className="p-4 flex items-center gap-3 hover:bg-gray-50">
+                <input type="checkbox" className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary" />
+                <div className="flex-1">
+                    <p className="text-sm font-medium">Receive Milk Delivery</p>
+                    <p className="text-xs text-gray-500">Assigned by System</p>
+                </div>
+            </div>
+        </div>
+      </section>
+
+    </div>
   );
 }

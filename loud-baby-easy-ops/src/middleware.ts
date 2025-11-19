@@ -3,7 +3,19 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
-  // Create a response object that we can modify and return
+  // --- THE NEW, ROBUST FIX ---
+  // Check for the unique Square webhook signature header.
+  const squareSignature = request.headers.get('x-square-signature');
+
+  if (squareSignature) {
+    // This is a Square webhook. Let it pass through to the API route directly.
+    console.log('[Middleware] Square signature header detected. Bypassing auth.');
+    return NextResponse.next();
+  }
+  // --- END OF FIX ---
+
+  // --- All other requests (from normal users) will continue to the auth check ---
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -14,13 +26,11 @@ export async function middleware(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    // THIS IS THE CRUCIAL, COMPLETE COOKIE IMPLEMENTATION
     cookies: {
       get(name: string) {
         return request.cookies.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        // If a cookie is set, we need to update the request cookies and the response cookies
         request.cookies.set({ name, value, ...options });
         response = NextResponse.next({
           request: {
@@ -30,7 +40,6 @@ export async function middleware(request: NextRequest) {
         response.cookies.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
-        // If a cookie is removed, update both request and response
         request.cookies.set({ name, value: '', ...options });
         response = NextResponse.next({
           request: {
@@ -42,7 +51,6 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // Now, getSession() can successfully refresh the session and update cookies
   const { data: { session } } = await supabase.auth.getSession();
   const { pathname } = request.nextUrl;
 
@@ -56,11 +64,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
   
-  // Return the potentially modified response object
   return response;
 }
 
-// Config remains the same
+// Config can remain the same. Our code is now smarter than the matcher.
 export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico).*)',

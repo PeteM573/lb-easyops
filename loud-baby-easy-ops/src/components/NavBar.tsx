@@ -25,6 +25,8 @@ export default function NavBar() {
                 <Link href="/tasks" className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Tasks</Link>
                 {/* Add a link to the new Report page */}
                 <Link href="/inventory/report" className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Inventory Report</Link>
+                {/* Scan link */}
+                 <Link href="/inventory/scan" className="block w-full text-center bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Scan Item</Link>
               </div>
             </div>
           </div>

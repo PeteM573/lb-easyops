@@ -9,22 +9,28 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.10.0",
+    "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.81.1",
+    "autoprefixer": "^10.4.22",
     "html5-qrcode": "^2.3.8",
+    "lucide-react": "^0.554.0",
     "next": "16.0.3",
+    "ngrok": "^5.0.0-beta.2",
+    "postcss": "^8.5.6",
     "react": "19.2.0",
-    "react-dom": "19.2.0"
+    "react-dom": "19.2.0",
+    "square": "^43.2.0",
+    "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }
