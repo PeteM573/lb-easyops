@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown } from 'lucide-react';
+import { createBrowserClient } from '@supabase/ssr';
+import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit } from 'lucide-react';
+import Link from 'next/link';
 
 type Item = {
   id: number;
@@ -16,8 +17,11 @@ type Item = {
 };
 
 export default function InventoryReportPage() {
-  const supabase = createClientComponentClient();
-  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -30,7 +34,7 @@ export default function InventoryReportPage() {
         .from('items')
         .select('*')
         .order('name', { ascending: true });
-      
+
       if (!error && data) {
         setItems(data);
       }
@@ -42,8 +46,8 @@ export default function InventoryReportPage() {
   // --- Computed Data ---
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            item.storage_location?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.storage_location?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
       return matchesSearch && matchesCategory;
     });
@@ -98,14 +102,14 @@ export default function InventoryReportPage() {
 
   return (
     <div className="space-y-6 pb-20">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-primary">Inventory Report</h1>
           <p className="text-sm text-gray-500">View and export current stock levels.</p>
         </div>
-        <button 
+        <button
           onClick={handleExport}
           className="flex items-center justify-center gap-2 bg-white border border-border text-foreground px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium"
         >
@@ -118,25 +122,25 @@ export default function InventoryReportPage() {
       <div className="bg-white p-4 rounded-xl border border-border shadow-sm flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-          <input 
-            type="text" 
-            placeholder="Search items..." 
+          <input
+            type="text"
+            placeholder="Search items..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-lg border border-input focus:ring-2 focus:ring-primary outline-none"
           />
         </div>
         <div className="relative w-full md:w-48">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <select 
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full pl-10 pr-8 py-2 rounded-lg border border-input focus:ring-2 focus:ring-primary outline-none appearance-none bg-white"
-            >
-                {uniqueCategories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                ))}
-            </select>
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="w-full pl-10 pr-8 py-2 rounded-lg border border-input focus:ring-2 focus:ring-primary outline-none appearance-none bg-white"
+          >
+            {uniqueCategories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -148,60 +152,82 @@ export default function InventoryReportPage() {
           {/* Mobile View: Cards */}
           <div className="md:hidden space-y-4">
             {filteredItems.map((item) => (
-                <div key={item.id} className="bg-white p-4 rounded-xl border border-border shadow-sm flex justify-between items-start">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-foreground">{item.name}</h3>
-                            {getStockStatus(item)}
-                        </div>
-                        <p className="text-sm text-gray-500">{item.category} • {item.storage_location || 'No Loc'}</p>
-                        <p className="text-xs text-gray-400">Cost: ${item.cost_per_unit}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-xl font-bold text-primary">{item.stock_quantity}</p>
-                        <p className="text-xs text-gray-500">{item.unit_of_measure}</p>
-                    </div>
+              <div key={item.id} className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-foreground">{item.name}</h3>
+                    {getStockStatus(item)}
+                  </div>
+                  <Link
+                    href={`/inventory/edit?id=${item.id}`}
+                    className="p-2 text-gray-400 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    aria-label="Edit item"
+                  >
+                    <Edit size={18} />
+                  </Link>
                 </div>
+                <div className="flex justify-between items-end">
+                  <div className="space-y-1">
+                    <p className="text-sm text-gray-500">{item.category} • {item.storage_location || 'No Loc'}</p>
+                    <p className="text-xs text-gray-400">Cost: ${item.cost_per_unit}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-primary">{item.stock_quantity}</p>
+                    <p className="text-xs text-gray-500">{item.unit_of_measure}</p>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
 
           {/* Desktop View: Table */}
           <div className="hidden md:block bg-white rounded-xl border border-border shadow-sm overflow-hidden">
             <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-600 border-b border-border">
-                    <tr>
-                        <th className="px-6 py-4 font-medium">Item Name</th>
-                        <th className="px-6 py-4 font-medium">Category</th>
-                        <th className="px-6 py-4 font-medium">Location</th>
-                        <th className="px-6 py-4 font-medium text-right">Cost</th>
-                        <th className="px-6 py-4 font-medium text-right">Quantity</th>
-                        <th className="px-6 py-4 font-medium">Status</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                    {filteredItems.map((item) => (
-                        <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
-                            <td className="px-6 py-4 text-gray-500">
-                                <span className="bg-gray-100 px-2 py-1 rounded-md text-xs">{item.category}</span>
-                            </td>
-                            <td className="px-6 py-4 text-gray-500">{item.storage_location || '-'}</td>
-                            <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
-                            <td className="px-6 py-4 text-right font-bold text-foreground">
-                                {item.stock_quantity} <span className="text-gray-400 font-normal text-xs">{item.unit_of_measure}</span>
-                            </td>
-                            <td className="px-6 py-4">
-                                {getStockStatus(item)}
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
+              <thead className="bg-gray-50 text-gray-600 border-b border-border">
+                <tr>
+                  <th className="px-6 py-4 font-medium">Item Name</th>
+                  <th className="px-6 py-4 font-medium">Category</th>
+                  <th className="px-6 py-4 font-medium">Location</th>
+                  <th className="px-6 py-4 font-medium text-right">Cost</th>
+                  <th className="px-6 py-4 font-medium text-right">Quantity</th>
+                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredItems.map((item) => (
+                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
+                    <td className="px-6 py-4 text-gray-500">
+                      <span className="bg-gray-100 px-2 py-1 rounded-md text-xs">{item.category}</span>
+                    </td>
+                    <td className="px-6 py-4 text-gray-500">{item.storage_location || '-'}</td>
+                    <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
+                    <td className="px-6 py-4 text-right font-bold text-foreground">
+                      {item.stock_quantity} <span className="text-gray-400 font-normal text-xs">{item.unit_of_measure}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {getStockStatus(item)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Link
+                        href={`/inventory/edit?id=${item.id}`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        aria-label="Edit item"
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
 
           {filteredItems.length === 0 && (
             <div className="text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
-                No items match your filters.
+              No items match your filters.
             </div>
           )}
         </>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { Search, X, Check, PackageOpen, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -17,13 +17,16 @@ type Item = {
 };
 
 export default function ReceiveStockPage() {
-  const supabase = createClientComponentClient();
-  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   // --- State ---
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // The item currently being "received" (activates the modal)
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [receiveQty, setReceiveQty] = useState<number | ''>('');
@@ -36,7 +39,7 @@ export default function ReceiveStockPage() {
         .from('items')
         .select('*')
         .order('name', { ascending: true });
-      
+
       if (error) {
         console.error('Error fetching inventory:', error);
       } else {
@@ -51,7 +54,7 @@ export default function ReceiveStockPage() {
   const filteredItems = useMemo(() => {
     if (!searchTerm) return items;
     const lowerTerm = searchTerm.toLowerCase();
-    return items.filter((item) => 
+    return items.filter((item) =>
       item.name.toLowerCase().includes(lowerTerm) ||
       item.category.toLowerCase().includes(lowerTerm) ||
       item.storage_location?.toLowerCase().includes(lowerTerm)
@@ -77,7 +80,7 @@ export default function ReceiveStockPage() {
 
     // 1. Update Database
     const newTotal = selectedItem.stock_quantity + Number(receiveQty);
-    
+
     const { error } = await supabase
       .from('items')
       .update({ stock_quantity: newTotal })
@@ -90,7 +93,7 @@ export default function ReceiveStockPage() {
     }
 
     // 2. Update Local State (Optimistic UI update)
-    setItems((prev) => 
+    setItems((prev) =>
       prev.map((i) => i.id === selectedItem.id ? { ...i, stock_quantity: newTotal } : i)
     );
 
@@ -102,7 +105,7 @@ export default function ReceiveStockPage() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-24"> {/* pb-24 for mobile nav clearance */}
-      
+
       {/* --- Header & Search --- */}
       <div className="sticky top-0 bg-background z-10 pt-4 pb-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -146,22 +149,22 @@ export default function ReceiveStockPage() {
               >
                 {/* Icon Placeholder (Can be replaced by item.image_url) */}
                 <div className="h-12 w-12 bg-secondary/30 rounded-lg flex items-center justify-center text-secondary-foreground mr-4 shrink-0">
-                    <PackageOpen size={24} />
+                  <PackageOpen size={24} />
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start">
                     <h3 className="font-semibold text-foreground truncate pr-2">{item.name}</h3>
                     <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full whitespace-nowrap">
-                        {item.stock_quantity} {item.unit_of_measure}
+                      {item.stock_quantity} {item.unit_of_measure}
                     </span>
                   </div>
-                  
+
                   <div className="mt-1 flex items-center gap-2 text-sm text-gray-500">
                     <span className="truncate">{item.category}</span>
                     <span>•</span>
                     <span className="flex items-center gap-1 truncate">
-                        Location: {item.storage_location || 'N/A'}
+                      Location: {item.storage_location || 'N/A'}
                     </span>
                   </div>
                 </div>
@@ -175,13 +178,13 @@ export default function ReceiveStockPage() {
       {selectedItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
-            
+
             {/* Modal Header */}
             <div className="bg-primary/10 p-6 flex justify-between items-start">
               <div>
                 <h2 className="text-xl font-bold text-foreground">{selectedItem.name}</h2>
                 <p className="text-primary font-medium text-sm mt-1">
-                    Current: {selectedItem.stock_quantity} {selectedItem.unit_of_measure}
+                  Current: {selectedItem.stock_quantity} {selectedItem.unit_of_measure}
                 </p>
               </div>
               <button onClick={handleCloseModal} className="p-2 bg-white/50 rounded-full hover:bg-white text-gray-600 transition-colors">
@@ -191,56 +194,56 @@ export default function ReceiveStockPage() {
 
             {/* Modal Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              
+
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
-                    Quantity Received ({selectedItem.unit_of_measure})
+                  Quantity Received ({selectedItem.unit_of_measure})
                 </label>
                 <div className="relative">
-                    <input
-                        type="number"
-                        inputMode="decimal" // Better keyboard on mobile
-                        autoFocus
-                        required
-                        min="0.01"
-                        step="any"
-                        value={receiveQty}
-                        onChange={(e) => setReceiveQty(e.target.value ? Number(e.target.value) : '')}
-                        className="block w-full text-3xl font-bold text-center p-4 rounded-xl border border-input bg-gray-50 focus:ring-2 focus:ring-primary focus:bg-white outline-none transition-all"
-                        placeholder="0"
-                    />
+                  <input
+                    type="number"
+                    inputMode="decimal" // Better keyboard on mobile
+                    autoFocus
+                    required
+                    min="0.01"
+                    step="any"
+                    value={receiveQty}
+                    onChange={(e) => setReceiveQty(e.target.value ? Number(e.target.value) : '')}
+                    className="block w-full text-3xl font-bold text-center p-4 rounded-xl border border-input bg-gray-50 focus:ring-2 focus:ring-primary focus:bg-white outline-none transition-all"
+                    placeholder="0"
+                  />
                 </div>
               </div>
 
               {/* Live Calculation Feedback */}
               {receiveQty !== '' && (
-                  <div className="bg-green-50 border border-green-100 p-3 rounded-lg flex items-center justify-center gap-2 text-green-800 text-sm font-medium">
-                    <span>New Total:</span>
-                    <span className="font-bold text-lg">
-                        {selectedItem.stock_quantity + Number(receiveQty)} {selectedItem.unit_of_measure}
-                    </span>
-                  </div>
+                <div className="bg-green-50 border border-green-100 p-3 rounded-lg flex items-center justify-center gap-2 text-green-800 text-sm font-medium">
+                  <span>New Total:</span>
+                  <span className="font-bold text-lg">
+                    {selectedItem.stock_quantity + Number(receiveQty)} {selectedItem.unit_of_measure}
+                  </span>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
                 <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="w-full py-3 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors"
                 >
-                    Cancel
+                  Cancel
                 </button>
                 <button
-                    type="submit"
-                    disabled={submitting || !receiveQty}
-                    className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  type="submit"
+                  disabled={submitting || !receiveQty}
+                  className="w-full py-3 px-4 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                    {submitting ? 'Saving...' : (
-                        <>
-                            <Check size={20} />
-                            Confirm
-                        </>
-                    )}
+                  {submitting ? 'Saving...' : (
+                    <>
+                      <Check size={20} />
+                      Confirm
+                    </>
+                  )}
                 </button>
               </div>
             </form>

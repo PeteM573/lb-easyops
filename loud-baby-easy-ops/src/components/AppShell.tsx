@@ -5,14 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Package, ScanBarcode, ClipboardList, Menu, LogOut } from 'lucide-react';
 import { useState } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = createClientComponentClient();
-  
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
   const navItems = [
     { name: 'Overview', href: '/', icon: LayoutDashboard },
     { name: 'Inventory', href: '/inventory/report', icon: Package },
@@ -31,9 +34,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* --- Desktop Sidebar --- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-border h-screen sticky top-0">
         <div className="p-6 border-b border-border">
-            {/* Placeholder for Logo */}
-            <h1 className="text-2xl font-bold text-primary tracking-tight">Loud Baby</h1>
-            <p className="text-xs text-muted-foreground">Easy Ops</p>
+          {/* Placeholder for Logo */}
+          <h1 className="text-2xl font-bold text-primary tracking-tight">Loud Baby</h1>
+          <p className="text-xs text-muted-foreground">Easy Ops</p>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => {
@@ -43,11 +46,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                  isActive 
-                    ? 'bg-primary/10 text-primary font-medium' 
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                    ? 'bg-primary/10 text-primary font-medium'
                     : 'text-gray-600 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Icon size={20} />
                 {item.name}
@@ -56,13 +58,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         <div className="p-4 border-t border-border">
-            <button 
-                onClick={handleLogout}
-                className="flex items-center gap-3 px-4 py-3 w-full text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
-            >
-                <LogOut size={20} />
-                Sign Out
-            </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 w-full text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors"
+          >
+            <LogOut size={20} />
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -70,14 +72,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <header className="md:hidden h-16 bg-white border-b border-border flex items-center justify-between px-4 sticky top-0 z-10">
         <h1 className="text-xl font-bold text-primary">Loud Baby</h1>
         <button onClick={handleLogout} className="p-2 text-gray-500">
-            <LogOut size={20} />
+          <LogOut size={20} />
         </button>
       </header>
 
       {/* --- Main Content Area --- */}
       <main className="flex-1 bg-background p-4 md:p-8 mb-20 md:mb-0 overflow-y-auto">
         <div className="max-w-5xl mx-auto">
-            {children}
+          {children}
         </div>
       </main>
 
@@ -91,9 +93,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={item.name}
                 href={item.href}
-                className={`flex flex-col items-center justify-center gap-1 ${
-                  isActive ? 'text-primary' : 'text-gray-400'
-                }`}
+                className={`flex flex-col items-center justify-center gap-1 ${isActive ? 'text-primary' : 'text-gray-400'
+                  }`}
               >
                 <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
                 <span className="text-[10px] font-medium">{item.name}</span>
