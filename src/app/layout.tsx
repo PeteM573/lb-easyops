@@ -1,10 +1,6 @@
 // src/app/layout.tsx
 import './globals.css';
-import dynamic from 'next/dynamic';
-
-const AppShell = dynamic(() => import('@/components/AppShell'), {
-  ssr: false,
-});
+import NoSSRAppShell from '@/components/NoSSRAppShell';
 
 export default function RootLayout({
   children,
@@ -14,9 +10,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-background">
-        <AppShell>
+        <NoSSRAppShell>
           {children}
-        </AppShell>
+        </NoSSRAppShell>
       </body>
     </html>
   );
