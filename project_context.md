@@ -1,56 +1,81 @@
-Project: Loud Baby Easy Ops
-Type: PWA (Inventory & Operations Management)
-Client: Small Boutique/Café ("Loud Baby")
-Aesthetic: "Warm, Boutique, Friendly" (Not a cold SaaS)
-1. Tech Stack & Critical Constraints
-Framework: Next.js 15 (App Router)
-Language: TypeScript
-Styling: Tailwind CSS v3.4 (Do NOT upgrade to v4 - it breaks config).
-Icons: lucide-react
-Backend/DB: Supabase (PostgreSQL, Auth Helpers, RLS)
-State Management: React Server Components + Client Components for interactivity.
-2. Design System & UI Rules
-Core Philosophy: Mobile-First. Staff use this on phones/tablets while walking. Targets must be large (h-12 minimum).
-Color Palette (Variables in globals.css):
---background: Warm Cream (hsl(40 20% 97%))
---primary: Terracotta/Orange (hsl(24 85% 60%))
---secondary: Sage Green (hsl(150 30% 94%))
---foreground: Soft Charcoal (hsl(20 10% 15%))
-Layout Architecture:
-Desktop: Persistent Left Sidebar.
-Mobile: Fixed Bottom Tab Bar + Top Header.
-Component: controlled by src/components/AppShell.tsx.
-UX Patterns:
-Modals over Pages: For quick actions (Receiving, Scanning), use a Modal/Drawer context to keep users "in the flow."
-Cards vs Tables: Use Tables for Desktop views, but switch to Card Views for Mobile.
-Explicit Units: Always display Unit of Measure (UOM) clearly (e.g., "10 oz" vs "10 lbs") to avoid the "Honey Butter Problem."
-3. Database Schema (Supabase)
-profiles: id (UUID), role ('Manager' | 'Employee').
-items:
-id (int8), name (text), category (text)
-stock_quantity (numeric), unit_of_measure (text)
-cost_per_unit (numeric), alert_threshold (numeric)
-storage_location (text), barcode (text, unique)
-tasks: title, is_complete, assigned_to (FK).
-4. Current Implementation Status
-✅ Dashboard (src/app/page.tsx): Responsive grid, "Quick Actions" buffet, Low Stock alerts.
-✅ Navigation: Responsive AppShell implemented.
-✅ Receive Stock (src/app/inventory/receive/page.tsx): Client-side search, Modal interaction, explicitly displays UOM.
-✅ Inventory Report (src/app/inventory/report/page.tsx): Searchable, Filterable, CSV Export, Hybrid Card/Table view.
-🚧 Add Item (src/app/inventory/new/page.tsx): Needs Styling/Refactor. Currently a raw form.
-🚧 Scanning (src/app/inventory/scan/page.tsx): Needs Logic. Currently basic html5-qrcode implementation.
-🚧 Tasks: Needs UI Polish.
-5. Immediate Next Steps (For the Agent)
-Refactor src/app/inventory/new/page.tsx:
-Apply the "Boutique" design system.
-Ensure it handles the "Consumable" vs "Retail" category logic.
-Make it mobile-friendly (large inputs).
-Refactor src/app/inventory/scan/page.tsx:
-Improve the camera UI (it's currently ugly).
-Make it redirect to the Item Detail view on successful scan.
-Task Management:
-Style the task list to match the Dashboard "Card" aesthetic.
-6. Technical "Gotchas"
-Tailwind Config: We are using tailwind.config.ts with a standard postcss.config.mjs. Do not change this structure.
-Supabase Auth: Use createClientComponentClient for client-side logic and createMiddlewareClient for the middleware.
-Square Webhook: There is a bypass in middleware.ts for /api/square-webhook that validates x-square-signature. Do not touch this unless necessary.
+# Project: Loud Baby Easy Ops
+**Type:** PWA (Inventory & Operations Management)
+**Client:** Small Boutique/Café ("Loud Baby")
+**Aesthetic:** "Warm, Boutique, Friendly" (Not a cold SaaS)
+**Current Phase:** Phase 3 - "Magic & History" (Scanning, Logs, Consumption)
+
+## 1. Tech Stack & Critical Constraints
+*   **Framework:** Next.js 15 (App Router)
+*   **Language:** TypeScript
+*   **Styling:** Tailwind CSS **v3.4** (LOCKED. Do **NOT** upgrade to v4).
+*   **Icons:** `lucide-react`
+*   **Backend/DB:** Supabase (PostgreSQL, RLS)
+*   **Auth:** `@supabase/ssr` (Replaced deprecated auth-helpers).
+*   **State:** React Client Components for interactive flows.
+
+## 2. Design System & UI Rules
+**Core Philosophy:** Mobile-First. Staff use this on phones/tablets while walking.
+*   **Touch Targets:** `h-12` minimum.
+*   **Typography:** Clean sans-serif, automatic **Title Case** enforcement on item names.
+
+**Color Palette (CSS Variables):**
+*   `--background`: Warm Cream (`hsl(40 20% 97%)`)
+*   `--primary`: Terracotta/Orange (`hsl(24 85% 60%)`)
+*   `--secondary`: Sage Green (`hsl(150 30% 94%)`)
+*   `--foreground`: Soft Charcoal (`hsl(20 10% 15%)`)
+
+**UX Patterns:**
+*   **Navigation:** Sidebar (Desktop) / Bottom Tabs (Mobile).
+*   **Modals:** Use for "Quick Actions" (Receive, Scan) to preserve context.
+*   **Data View:** Cards for Mobile, Tables for Desktop.
+*   **Pagination:** Implemented on Reports (10/20/50 items).
+*   **Feedback:** Green toast/text for success, Amber for alerts.
+
+## 3. Domain Logic (Business Rules)
+**Categories (Expanded):**
+1.  **Retail:** Finished goods (Clothes, Accessories).
+2.  **Accessories:** Add-ons.
+3.  **Raw Materials:** Ingredients (Flour, Milk, Coffee Beans).
+4.  **Consumables:** Paper goods, Cups, Napkins.
+
+**Data Consistency:**
+*   **Title Case:** All item names auto-format (e.g., "honey" -> "Honey").
+*   **Unit of Measure (UOM):** Must be explicit in UI (e.g., "Quantity: 5 (lbs)").
+
+## 4. Database Schema (Supabase)
+*   `profiles`: `id` (UUID), `role` ('Manager' | 'Employee').
+*   `items`:
+    *   `id` (int8), `name`, `category`
+    *   `stock_quantity` (numeric), `unit_of_measure` (text)
+    *   `cost_per_unit` (numeric), `alert_threshold` (numeric)
+    *   `storage_location`, `barcode` (unique)
+*   `tasks`: `title`, `description`, `is_complete`, `assigned_to`, `created_by`.
+*   `inventory_logs` (Planned):
+    *   `item_id`, `user_id`, `change_amount`, `reason_code`, `created_at`.
+
+## 5. Current Implementation Status
+*   **✅ Dashboard:** Real-time "Low Stock" & "My Tasks" data. Quick Actions.
+*   **✅ Inventory Report:** Pagination, Search, Filter, CSV Export, Edit Buttons.
+*   **✅ Inventory CRUD:** "New Item" and "Edit Item" pages complete (with Title Case).
+*   **✅ Receive Stock:** Modal-based flow, clear UOM display.
+*   **✅ Tasks:** Redesigned UI, split Active/Completed lists.
+*   **✅ Auth:** Migrated to `@supabase/ssr` (fixed 401 errors).
+*   **🚧 Scanning:** `src/app/inventory/scan/page.tsx` exists but needs `html5-qrcode` logic.
+*   **🚧 Consumption/Waste:** Needs a specific flow for "Staff Meal" or "Spill" logging.
+
+## 6. Immediate Next Steps (The Agent's Mission)
+1.  **Implement Barcode Scanner (`src/app/inventory/scan/page.tsx`):**
+    *   Integrate `html5-qrcode`.
+    *   Redirect successful scans to the Receive Modal or Item Detail.
+    *   Ensure permissions UI (Camera allow/deny) looks "Boutique", not broken.
+2.  **Create "Consumption/Waste" Flow:**
+    *   Create SQL table `inventory_logs` (if not exists).
+    *   Create UI for deducting stock with a "Reason" (Sale, Waste, Staff Meal).
+3.  **Refine Dashboard Data:**
+    *   Ensure the "Low Stock" count is accurate based on `stock_quantity <= alert_threshold`.
+
+## 7. Technical "Gotchas"
+*   **Tailwind:** Use `tailwind.config.ts` + `postcss.config.mjs`.
+*   **Supabase:** Use `createBrowserClient` for client components.
+*   **Square Webhook:** `middleware.ts` has a bypass for `/api/square-webhook`. **Do not touch.**
+*   **Mobile View:** Always test layout in Mobile width (375px) first.

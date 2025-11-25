@@ -1,82 +1,128 @@
 // src/app/inventory/scan/page.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
-import { createClient } from '@/lib/supabase-browser';
+import React, { useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ArrowLeft, Package } from 'lucide-react';
+import BarcodeScanner from '@/components/BarcodeScanner';
 
 export default function ScanPage() {
   const router = useRouter();
-  const supabase = createClient();
-  const [scanResult, setScanResult] = useState<string | null>(null);
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+
+  const [scannerOpen, setScannerOpen] = useState(true); // Auto-open scanner
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // Initialize the scanner
-    const scanner = new Html5QrcodeScanner(
-      'reader', // The ID of the div element where the scanner will be rendered
-      {
-        qrbox: {
-          width: 250,
-          height: 250,
-        },
-        fps: 5, // frames per second
-      },
-      false // verbose output
-    );
+  const handleScanSuccess = async (barcode: string) => {
+    setLoading(true);
+    setError(null);
 
-    // --- Define what happens on a successful scan ---
-    const onScanSuccess = async (decodedText: string) => {
-      scanner.clear(); // Stop the scanner
-      setScanResult(`Looking for item with barcode: ${decodedText}`);
-
-      // --- Find the item in our database ---
+    try {
+      // Fetch item from database
       const { data, error: dbError } = await supabase
         .from('items')
-        .select('id')
-        .eq('barcode', decodedText)
+        .select('id, name')
+        .eq('barcode', barcode)
         .single();
 
       if (dbError || !data) {
-        setError(`Item not found for barcode: ${decodedText}. Please add it first.`);
+        setError(`Item not found for barcode: ${barcode}`);
+        setLoading(false);
+        // Keep scanner closed, show error
       } else {
-        // --- If found, redirect to the item's detail page ---
-        router.push(`/inventory/${data.id}`);
+        // Redirect to item edit page to show details
+        router.push(`/inventory/edit?id=${data.id}`);
       }
-    };
-
-    // --- Define what happens on a scan failure ---
-    const onScanFailure = (error: any) => {
-      // This is called frequently, so we don't want to spam the console.
-      // You can add more robust error handling here if needed.
-    };
-
-    // Start scanning
-    scanner.render(onScanSuccess, onScanFailure);
-
-    // Cleanup function to clear the scanner when the component unmounts
-    return () => {
-      scanner.clear().catch(err => console.error("Failed to clear scanner", err));
-    };
-  }, [router, supabase]);
+    } catch (err) {
+      console.error('Error fetching item:', err);
+      setError('Failed to look up item. Please try again.');
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <header className="mb-6 text-center">
-        <h1 className="text-4xl font-bold text-gray-800">Scan Barcode</h1>
-        <p className="text-lg text-gray-500">Point your camera at an item's barcode or SKU.</p>
-        <Link href="/" className="text-blue-500 hover:underline mt-2 inline-block">&larr; Back to Dashboard</Link>
+    <div className="min-h-screen bg-background p-6 pb-24">
+      {/* Header */}
+      <header className="max-w-2xl mx-auto mb-8">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-foreground transition-colors mb-4"
+        >
+          <ArrowLeft size={20} />
+          <span>Back to Dashboard</span>
+        </Link>
+
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-primary/10 rounded-xl">
+            <Package className="text-primary" size={32} />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Scan Barcode</h1>
+            <p className="text-gray-600 mt-1">
+              Point your camera at an item's barcode or QR code
+            </p>
+          </div>
+        </div>
       </header>
 
-      <main className="max-w-md mx-auto bg-white p-4 rounded-lg shadow-md">
-        {/* The scanner will be rendered inside this div */}
-        <div id="reader"></div>
+      {/* Main Content */}
+      <main className="max-w-2xl mx-auto">
 
-        {scanResult && <p className="text-green-600 text-center mt-4">{scanResult}</p>}
-        {error && <p className="text-red-600 text-center mt-4">{error}</p>}
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <p className="text-red-800 font-medium mb-3">{error}</p>
+            <button
+              onClick={() => {
+                setError(null);
+                setScannerOpen(true);
+              }}
+              className="h-12 px-6 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 text-center">
+            <p className="text-blue-800 font-medium">Looking up item...</p>
+          </div>
+        )}
+
+        {/* Instructions */}
+        {!scannerOpen && !error && !loading && (
+          <div className="bg-white border border-border rounded-xl p-6 text-center">
+            <Package className="mx-auto mb-4 text-gray-400" size={48} />
+            <h2 className="text-xl font-bold text-foreground mb-2">Ready to Scan</h2>
+            <p className="text-gray-600 mb-6">
+              Click the button below to open the camera and scan a barcode
+            </p>
+            <button
+              onClick={() => setScannerOpen(true)}
+              className="h-12 px-8 bg-primary text-white font-semibold rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              Open Scanner
+            </button>
+          </div>
+        )}
       </main>
+
+      {/* Barcode Scanner Component */}
+      <BarcodeScanner
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScanSuccess={handleScanSuccess}
+        title="Scan Item Barcode"
+        subtitle="Point camera at barcode to look up item"
+      />
     </div>
   );
 }

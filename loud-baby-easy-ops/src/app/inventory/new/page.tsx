@@ -1,11 +1,11 @@
 // src/app/inventory/new/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package } from 'lucide-react';
+import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2 } from 'lucide-react';
 
 export default function NewItemPage() {
   const supabase = createBrowserClient(
@@ -13,14 +13,21 @@ export default function NewItemPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const router = useRouter();
+
   const [itemName, setItemName] = useState('');
   const [category, setCategory] = useState('Retail');
   const [barcode, setBarcode] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(''); // Legacy storage_location
   const [quantity, setQuantity] = useState<number | ''>('');
   const [uom, setUom] = useState('');
   const [cost, setCost] = useState<number | ''>('');
   const [threshold, setThreshold] = useState<number | ''>('');
+
+  // Multi-location support
+  const [locations, setLocations] = useState<{ id: number; name: string; is_default: boolean }[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<number | ''>('');
+
+  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -34,35 +41,96 @@ export default function NewItemPage() {
       .join(' ');
   };
 
+  useEffect(() => {
+    const fetchLocations = async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .order('id', { ascending: true });
+
+      if (data) {
+        setLocations(data);
+        // Set default location if available
+        const defaultLoc = data.find(l => l.is_default);
+        if (defaultLoc) {
+          setSelectedLocationId(defaultLoc.id);
+        } else if (data.length > 0) {
+          setSelectedLocationId(data[0].id);
+        }
+      }
+      setIsLoading(false);
+    };
+    fetchLocations();
+  }, [supabase]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
     setSuccess(null);
 
-    const { error: insertError } = await supabase.from('items').insert({
-      name: itemName,
-      category: category,
-      storage_location: location,
-      stock_quantity: quantity === '' ? 0 : quantity,
-      unit_of_measure: uom,
-      cost_per_unit: cost === '' ? 0 : cost,
-      alert_threshold: threshold === '' ? 0 : threshold,
-      barcode: barcode || null,
-    });
+    if (quantity !== '' && quantity > 0 && selectedLocationId === '') {
+      setError('Please select a location for the initial stock.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 1. Insert Item
+    const { data: newItem, error: insertError } = await supabase
+      .from('items')
+      .insert({
+        name: itemName,
+        category: category,
+        storage_location: location,
+        stock_quantity: quantity === '' ? 0 : quantity,
+        unit_of_measure: uom,
+        cost_per_unit: cost === '' ? 0 : cost,
+        alert_threshold: threshold === '' ? 0 : threshold,
+        barcode: barcode || null,
+      })
+      .select()
+      .single();
+
+    if (insertError || !newItem) {
+      setError(`Failed to add item: ${insertError?.message}`);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // 2. Insert Item Location (if quantity > 0)
+    if (quantity !== '' && quantity > 0 && selectedLocationId) {
+      const { error: locError } = await supabase
+        .from('item_locations')
+        .insert({
+          item_id: newItem.id,
+          location_id: Number(selectedLocationId),
+          quantity: quantity
+        });
+
+      if (locError) {
+        // Non-blocking error, but good to log
+        console.error('Failed to create item_location record:', locError);
+      }
+    }
 
     setIsSubmitting(false);
+    setSuccess(`Successfully added "${itemName}" to inventory!`);
 
-    if (insertError) {
-      setError(`Failed to add item: ${insertError.message}`);
-    } else {
-      setSuccess(`Successfully added "${itemName}" to inventory!`);
-      // Reset the form
-      setTimeout(() => {
-        router.push('/');
-      }, 1500);
-    }
+    setTimeout(() => {
+      router.push('/inventory/report');
+    }, 1500);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="animate-spin" size={24} />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -71,7 +139,7 @@ export default function NewItemPage() {
       <div className="sticky top-0 bg-background z-10 pt-6 pb-4 px-4 md:px-8 border-b border-border">
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center justify-between mb-2">
-            <Link href="/" className="text-sm text-gray-500 hover:text-foreground transition-colors">
+            <Link href="/inventory/report" className="text-sm text-gray-500 hover:text-foreground transition-colors">
               ← Back
             </Link>
           </div>
@@ -181,18 +249,18 @@ export default function NewItemPage() {
                 />
               </div>
 
-              {/* Storage Location */}
+              {/* Storage Location (Legacy) */}
               <div>
                 <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                   <MapPin size={16} className="text-gray-400" />
-                  Storage Location
+                  Shelf/Bin Label <span className="text-gray-400 text-xs font-normal">(Optional)</span>
                 </label>
                 <input
                   type="text"
                   id="location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g., Walk-in Cooler, Shelf A3, Back Storage"
+                  placeholder="e.g., Shelf A3"
                   className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                 />
               </div>
@@ -244,6 +312,30 @@ export default function NewItemPage() {
                   />
                 </div>
               </div>
+
+              {/* Initial Location Selection */}
+              {quantity !== '' && quantity > 0 && (
+                <div className="animate-in fade-in slide-in-from-top-2">
+                  <label htmlFor="initialLocation" className="block text-sm font-medium text-foreground mb-2">
+                    Assign Initial Stock To <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="initialLocation"
+                    value={selectedLocationId}
+                    onChange={(e) => setSelectedLocationId(Number(e.target.value))}
+                    required
+                    className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
+                  >
+                    <option value="" disabled>Select a location</option>
+                    {locations.map(loc => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name} {loc.is_default ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3 flex items-start gap-2">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />
                 <span><strong>Important:</strong> Be specific with units (e.g., "10 oz" vs "10 lbs") to avoid confusion!</span>
@@ -296,7 +388,7 @@ export default function NewItemPage() {
           {/* Submit Button */}
           <div className="flex gap-3">
             <Link
-              href="/"
+              href="/inventory/report"
               className="flex-1 h-12 px-6 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors flex items-center justify-center"
             >
               Cancel
@@ -308,7 +400,7 @@ export default function NewItemPage() {
             >
               {isSubmitting ? (
                 <>
-                  <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <Loader2 className="animate-spin" size={20} />
                   Adding...
                 </>
               ) : (

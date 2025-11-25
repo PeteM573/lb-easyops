@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2 } from 'lucide-react';
+import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -104,6 +104,14 @@ export default function Dashboard() {
                             <Truck size={28} />
                         </div>
                         <span className="font-medium text-foreground">Receive Stock</span>
+                    </Link>
+
+                    {/* Log Consumption */}
+                    <Link href="/inventory/consume" className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                        <div className="p-4 bg-orange-100 text-orange-600 rounded-full group-hover:scale-110 transition-transform">
+                            <Utensils size={28} />
+                        </div>
+                        <span className="font-medium text-foreground">Log Usage</span>
                     </Link>
 
                     {/* Scan Item */}

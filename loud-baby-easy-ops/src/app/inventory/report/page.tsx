@@ -2,8 +2,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit } from 'lucide-react';
+import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import Link from 'next/link';
+
+type ItemLocation = {
+  location_name: string;
+  quantity: number;
+};
 
 type Item = {
   id: number;
@@ -14,6 +19,7 @@ type Item = {
   cost_per_unit: number;
   alert_threshold: number | null;
   storage_location: string | null;
+  location_breakdown?: ItemLocation[];
 };
 
 export default function InventoryReportPage() {
@@ -26,18 +32,52 @@ export default function InventoryReportPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // --- Data Fetching ---
   useEffect(() => {
     const fetchItems = async () => {
-      const { data, error } = await supabase
+      setLoading(true);
+
+      // 1. Fetch Items
+      const { data: itemsData, error: itemsError } = await supabase
         .from('items')
         .select('*')
         .order('name', { ascending: true });
 
-      if (!error && data) {
-        setItems(data);
+      if (itemsError) {
+        console.error('Error fetching items:', itemsError);
+        setLoading(false);
+        return;
       }
+
+      // 2. Fetch Item Locations with Location Names
+      const { data: locData, error: locError } = await supabase
+        .from('item_locations')
+        .select(`
+          item_id,
+          quantity,
+          locations (name)
+        `);
+
+      if (locError) {
+        console.error('Error fetching item locations:', locError);
+      }
+
+      // 3. Merge Data
+      const mergedItems = itemsData?.map(item => {
+        const breakdown = locData
+          ?.filter((l: any) => l.item_id === item.id)
+          .map((l: any) => ({
+            location_name: l.locations?.name || 'Unknown',
+            quantity: l.quantity
+          })) || [];
+
+        return { ...item, location_breakdown: breakdown };
+      }) || [];
+
+      setItems(mergedItems);
       setLoading(false);
     };
     fetchItems();
@@ -58,21 +98,38 @@ export default function InventoryReportPage() {
     return ['All', ...Array.from(cats)];
   }, [items]);
 
+  // --- Pagination ---
+  const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedItems = filteredItems.slice(startIndex, endIndex);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, itemsPerPage]);
+
   // --- Export to CSV ---
   const handleExport = () => {
-    const headers = ['Name', 'Category', 'Stock', 'UOM', 'Cost', 'Location'];
-    const rows = filteredItems.map(item => [
-      item.name,
-      item.category,
-      item.stock_quantity,
-      item.unit_of_measure,
-      item.cost_per_unit,
-      item.storage_location
-    ]);
+    const headers = ['Name', 'Category', 'Total Stock', 'UOM', 'Cost', 'Location Breakdown'];
+    const rows = filteredItems.map(item => {
+      const breakdownStr = item.location_breakdown
+        ?.map(l => `${l.location_name}: ${l.quantity}`)
+        .join('; ') || '';
+
+      return [
+        item.name,
+        item.category,
+        item.stock_quantity,
+        item.unit_of_measure,
+        item.cost_per_unit,
+        breakdownStr
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.join(','))
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')) // Quote cells to handle commas
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -151,7 +208,7 @@ export default function InventoryReportPage() {
         <>
           {/* Mobile View: Cards */}
           <div className="md:hidden space-y-4">
-            {filteredItems.map((item) => (
+            {paginatedItems.map((item) => (
               <div key={item.id} className="bg-white p-4 rounded-xl border border-border shadow-sm">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-2">
@@ -168,8 +225,13 @@ export default function InventoryReportPage() {
                 </div>
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">{item.category} • {item.storage_location || 'No Loc'}</p>
-                    <p className="text-xs text-gray-400">Cost: ${item.cost_per_unit}</p>
+                    <p className="text-sm text-gray-500">{item.category}</p>
+                    {/* Breakdown for Mobile */}
+                    <div className="text-xs text-gray-400 space-y-0.5">
+                      {item.location_breakdown?.map((loc, idx) => (
+                        <p key={idx}>{loc.location_name}: {loc.quantity}</p>
+                      ))}
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-xl font-bold text-primary">{item.stock_quantity}</p>
@@ -187,21 +249,34 @@ export default function InventoryReportPage() {
                 <tr>
                   <th className="px-6 py-4 font-medium">Item Name</th>
                   <th className="px-6 py-4 font-medium">Category</th>
-                  <th className="px-6 py-4 font-medium">Location</th>
+                  <th className="px-6 py-4 font-medium">Location Breakdown</th>
                   <th className="px-6 py-4 font-medium text-right">Cost</th>
-                  <th className="px-6 py-4 font-medium text-right">Quantity</th>
+                  <th className="px-6 py-4 font-medium text-right">Total Qty</th>
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredItems.map((item) => (
+                {paginatedItems.map((item) => (
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
                     <td className="px-6 py-4 text-gray-500">
                       <span className="bg-gray-100 px-2 py-1 rounded-md text-xs">{item.category}</span>
                     </td>
-                    <td className="px-6 py-4 text-gray-500">{item.storage_location || '-'}</td>
+                    <td className="px-6 py-4 text-gray-500 text-xs">
+                      {item.location_breakdown && item.location_breakdown.length > 0 ? (
+                        <div className="space-y-1">
+                          {item.location_breakdown.map((loc, idx) => (
+                            <div key={idx} className="flex justify-between max-w-[150px]">
+                              <span>{loc.location_name}:</span>
+                              <span className="font-medium text-gray-700">{loc.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">No location data</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
                     <td className="px-6 py-4 text-right font-bold text-foreground">
                       {item.stock_quantity} <span className="text-gray-400 font-normal text-xs">{item.unit_of_measure}</span>
@@ -228,6 +303,66 @@ export default function InventoryReportPage() {
           {filteredItems.length === 0 && (
             <div className="text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
               No items match your filters.
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {filteredItems.length > 0 && (
+            <div className="bg-white rounded-xl border border-border shadow-sm p-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
+                {/* Items per page selector */}
+                <div className="flex items-center gap-3">
+                  <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                    Items per page:
+                  </label>
+                  <select
+                    id="itemsPerPage"
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="h-10 px-3 rounded-lg border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+
+                {/* Page info and navigation */}
+                <div className="flex items-center justify-between md:justify-end gap-4">
+                  <p className="text-sm text-gray-600">
+                    Showing {startIndex + 1}-{Math.min(endIndex, filteredItems.length)} of {filteredItems.length}
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="h-10 px-3 rounded-lg border border-input bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      aria-label="Previous page"
+                    >
+                      <ChevronLeft size={18} />
+                      <span className="hidden sm:inline text-sm">Previous</span>
+                    </button>
+
+                    <span className="text-sm text-gray-600 px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="h-10 px-3 rounded-lg border border-input bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                      aria-label="Next page"
+                    >
+                      <span className="hidden sm:inline text-sm">Next</span>
+                      <ChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
+
+              </div>
             </div>
           )}
         </>

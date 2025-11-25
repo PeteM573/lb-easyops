@@ -19,11 +19,14 @@ export default function EditItemPage() {
     const [itemName, setItemName] = useState('');
     const [category, setCategory] = useState('Retail');
     const [barcode, setBarcode] = useState('');
-    const [location, setLocation] = useState('');
-    const [quantity, setQuantity] = useState<number | ''>('');
+    const [location, setLocation] = useState(''); // Legacy storage_location string
     const [uom, setUom] = useState('');
     const [cost, setCost] = useState<number | ''>('');
     const [threshold, setThreshold] = useState<number | ''>('');
+
+    // Multi-location state
+    const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
+    const [stockMap, setStockMap] = useState<Record<number, number>>({});
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -40,39 +43,60 @@ export default function EditItemPage() {
     };
 
     useEffect(() => {
-        const fetchItem = async () => {
+        const fetchData = async () => {
             if (!itemId) {
                 setError('No item ID provided');
                 setIsLoading(false);
                 return;
             }
 
-            const { data, error: fetchError } = await supabase
+            // 1. Fetch Item
+            const { data: itemData, error: itemError } = await supabase
                 .from('items')
                 .select('*')
                 .eq('id', itemId)
                 .single();
 
-            if (fetchError || !data) {
+            if (itemError || !itemData) {
                 setError('Item not found');
                 setIsLoading(false);
                 return;
             }
 
-            // Pre-fill form with existing data
-            setItemName(data.name || '');
-            setCategory(data.category || 'Retail');
-            setBarcode(data.barcode || '');
-            setLocation(data.storage_location || '');
-            setQuantity(data.stock_quantity ?? '');
-            setUom(data.unit_of_measure || '');
-            setCost(data.cost_per_unit ?? '');
-            setThreshold(data.alert_threshold ?? '');
+            // 2. Fetch All Locations
+            const { data: locData, error: locError } = await supabase
+                .from('locations')
+                .select('id, name')
+                .order('id', { ascending: true });
+
+            if (locData) setLocations(locData);
+
+            // 3. Fetch Item Stock per Location
+            const { data: stockData, error: stockError } = await supabase
+                .from('item_locations')
+                .select('location_id, quantity')
+                .eq('item_id', itemId);
+
+            const initialStockMap: Record<number, number> = {};
+            // Initialize with 0 for all locations
+            locData?.forEach(l => initialStockMap[l.id] = 0);
+            // Fill with actual data
+            stockData?.forEach(s => initialStockMap[s.location_id] = s.quantity);
+            setStockMap(initialStockMap);
+
+            // Pre-fill form
+            setItemName(itemData.name || '');
+            setCategory(itemData.category || 'Retail');
+            setBarcode(itemData.barcode || '');
+            setLocation(itemData.storage_location || '');
+            setUom(itemData.unit_of_measure || '');
+            setCost(itemData.cost_per_unit ?? '');
+            setThreshold(itemData.alert_threshold ?? '');
 
             setIsLoading(false);
         };
 
-        fetchItem();
+        fetchData();
     }, [itemId, supabase]);
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -81,13 +105,17 @@ export default function EditItemPage() {
         setError(null);
         setSuccess(null);
 
+        // 1. Calculate new total stock
+        const totalStock = Object.values(stockMap).reduce((sum, qty) => sum + qty, 0);
+
+        // 2. Update Item Details
         const { error: updateError } = await supabase
             .from('items')
             .update({
                 name: itemName,
                 category: category,
                 storage_location: location,
-                stock_quantity: quantity === '' ? 0 : quantity,
+                stock_quantity: totalStock,
                 unit_of_measure: uom,
                 cost_per_unit: cost === '' ? 0 : cost,
                 alert_threshold: threshold === '' ? 0 : threshold,
@@ -95,16 +123,38 @@ export default function EditItemPage() {
             })
             .eq('id', itemId);
 
-        setIsSubmitting(false);
-
         if (updateError) {
             setError(`Failed to update item: ${updateError.message}`);
+            setIsSubmitting(false);
+            return;
+        }
+
+        // 3. Update Item Locations
+        const upsertData = Object.entries(stockMap).map(([locId, qty]) => ({
+            item_id: Number(itemId),
+            location_id: Number(locId),
+            quantity: qty
+        }));
+
+        const { error: locUpdateError } = await supabase
+            .from('item_locations')
+            .upsert(upsertData, { onConflict: 'item_id, location_id' });
+
+        setIsSubmitting(false);
+
+        if (locUpdateError) {
+            setError(`Failed to update stock locations: ${locUpdateError.message}`);
         } else {
             setSuccess(`Successfully updated "${itemName}"!`);
             setTimeout(() => {
                 router.push('/inventory/report');
             }, 1500);
         }
+    };
+
+    const handleStockChange = (locId: number, val: string) => {
+        const numVal = val === '' ? 0 : parseFloat(val);
+        setStockMap(prev => ({ ...prev, [locId]: numVal }));
     };
 
     if (isLoading) {
@@ -231,12 +281,6 @@ export default function EditItemPage() {
                                     <option value="Raw Materials">Raw Materials</option>
                                     <option value="Consumables">Consumables</option>
                                 </select>
-                                <p className="mt-1.5 text-xs text-gray-500">
-                                    {category === 'Retail' && '💡 Finished products sold directly to customers'}
-                                    {category === 'Accessories' && '💡 Add-on items and complementary products'}
-                                    {category === 'Raw Materials' && '💡 Base ingredients and supplies for production'}
-                                    {category === 'Consumables' && '💡 Paper goods and disposable items'}
-                                </p>
                             </div>
 
                             {/* Barcode */}
@@ -254,18 +298,18 @@ export default function EditItemPage() {
                                 />
                             </div>
 
-                            {/* Storage Location */}
+                            {/* Storage Location (Legacy/Display) */}
                             <div>
                                 <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                                     <MapPin size={16} className="text-gray-400" />
-                                    Storage Location
+                                    Shelf/Bin Label <span className="text-gray-400 text-xs font-normal">(Optional)</span>
                                 </label>
                                 <input
                                     type="text"
                                     id="location"
                                     value={location}
                                     onChange={(e) => setLocation(e.target.value)}
-                                    placeholder="e.g., Walk-in Cooler, Shelf A3, Back Storage"
+                                    placeholder="e.g., Shelf A3"
                                     className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                                 />
                             </div>
@@ -283,44 +327,55 @@ export default function EditItemPage() {
                         </div>
                         <div className="p-6 space-y-5">
 
-                            {/* Quantity and UOM */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label htmlFor="quantity" className="block text-sm font-medium text-foreground mb-2">
-                                        Current Quantity <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        id="quantity"
-                                        value={quantity}
-                                        onChange={(e) => setQuantity(e.target.value ? parseFloat(e.target.value) : '')}
-                                        required
-                                        min="0"
-                                        inputMode="decimal"
-                                        placeholder="0"
-                                        className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
-                                    />
-                                </div>
-                                <div>
-                                    <label htmlFor="uom" className="block text-sm font-medium text-foreground mb-2">
-                                        Unit of Measure <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="uom"
-                                        placeholder="e.g., lbs, oz, gallons, units"
-                                        value={uom}
-                                        onChange={(e) => setUom(e.target.value)}
-                                        required
-                                        className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
-                                    />
+                            {/* Unit of Measure */}
+                            <div>
+                                <label htmlFor="uom" className="block text-sm font-medium text-foreground mb-2">
+                                    Unit of Measure <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="uom"
+                                    placeholder="e.g., lbs, oz, gallons, units"
+                                    value={uom}
+                                    onChange={(e) => setUom(e.target.value)}
+                                    required
+                                    className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
+                                />
+                            </div>
+
+                            {/* Stock per Location */}
+                            <div className="space-y-3">
+                                <label className="block text-sm font-medium text-foreground">
+                                    Stock Quantity per Location
+                                </label>
+                                <div className="bg-gray-50 rounded-xl border border-border p-4 space-y-3">
+                                    {locations.map(loc => (
+                                        <div key={loc.id} className="flex items-center justify-between gap-4">
+                                            <label htmlFor={`loc-${loc.id}`} className="text-sm font-medium text-gray-700 flex-1">
+                                                {loc.name}
+                                            </label>
+                                            <div className="w-32">
+                                                <input
+                                                    type="number"
+                                                    id={`loc-${loc.id}`}
+                                                    step="0.01"
+                                                    min="0"
+                                                    value={stockMap[loc.id] ?? ''}
+                                                    onChange={(e) => handleStockChange(loc.id, e.target.value)}
+                                                    className="block w-full h-10 px-3 text-right rounded-lg border border-input bg-white focus:ring-2 focus:ring-primary outline-none"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                    <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
+                                        <span className="font-bold text-gray-700">Total Stock</span>
+                                        <span className="font-bold text-lg text-primary">
+                                            {Object.values(stockMap).reduce((a, b) => a + b, 0)} {uom}
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3 flex items-start gap-2">
-                                <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                                <span><strong>Important:</strong> Be specific with units (e.g., "10 oz" vs "10 lbs") to avoid confusion!</span>
-                            </p>
 
                             {/* Cost and Threshold */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -359,7 +414,6 @@ export default function EditItemPage() {
                                         placeholder="e.g., 5"
                                         className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                                     />
-                                    <p className="mt-1.5 text-xs text-gray-500">Get notified when stock falls below this amount</p>
                                 </div>
                             </div>
 
