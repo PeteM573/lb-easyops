@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar } from 'lucide-react';
+import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar, Plus, Trash2, X } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -18,6 +18,7 @@ interface UpcomingDate {
     label: string;
     target_date: string;
     items: { name: string } | null;
+    type: 'item' | 'general';
 }
 
 export default function Dashboard() {
@@ -33,6 +34,12 @@ export default function Dashboard() {
     // Manager-only state
     const [userRole, setUserRole] = useState<string>('staff');
     const [upcomingDates, setUpcomingDates] = useState<UpcomingDate[]>([]);
+
+    // General Dates Management
+    const [showGeneralDatesModal, setShowGeneralDatesModal] = useState(false);
+    const [generalLabel, setGeneralLabel] = useState('');
+    const [generalDate, setGeneralDate] = useState('');
+    const [generalDatesList, setGeneralDatesList] = useState<any[]>([]);
 
     useEffect(() => {
         const fetchTasks = async () => {
@@ -67,7 +74,8 @@ export default function Dashboard() {
                 setTasks(data || []);
 
                 // Fetch Upcoming Dates (Manager Only)
-                if (role === 'manager' || role === 'admin') {
+                // Case-insensitive check
+                if (role.toLowerCase() === 'manager' || role.toLowerCase() === 'admin') {
                     const today = new Date();
                     const nextWeek = new Date();
                     nextWeek.setDate(today.getDate() + 7);
@@ -75,7 +83,8 @@ export default function Dashboard() {
                     // Format dates as YYYY-MM-DD
                     const nextWeekStr = nextWeek.toISOString().split('T')[0];
 
-                    const { data: datesData } = await supabase
+                    // 1. Item Dates
+                    const { data: itemDates } = await supabase
                         .from('item_dates')
                         .select(`
                             id,
@@ -87,9 +96,22 @@ export default function Dashboard() {
                         .order('target_date', { ascending: true })
                         .limit(5);
 
-                    if (datesData) {
-                        setUpcomingDates(datesData as any);
-                    }
+                    // 2. General Dates
+                    const { data: generalDates } = await supabase
+                        .from('general_dates')
+                        .select('*')
+                        .lte('target_date', nextWeekStr)
+                        .order('target_date', { ascending: true })
+                        .limit(5);
+
+                    // Combine and Sort
+                    const combined = [
+                        ...(itemDates || []).map(d => ({ ...d, type: 'item' })),
+                        ...(generalDates || []).map(d => ({ ...d, type: 'general', items: null }))
+                    ].sort((a: any, b: any) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime())
+                        .slice(0, 5); // Limit to top 5 overall
+
+                    setUpcomingDates(combined as any);
                 }
             }
             setLoading(false);
@@ -108,6 +130,43 @@ export default function Dashboard() {
             // Remove completed task from list
             setTasks(tasks.filter(t => t.id !== taskId));
         }
+    };
+
+    // General Dates Functions
+    const fetchGeneralDates = async () => {
+        const { data } = await supabase
+            .from('general_dates')
+            .select('*')
+            .order('target_date', { ascending: true });
+        setGeneralDatesList(data || []);
+    };
+
+    const handleAddGeneralDate = async () => {
+        if (!generalLabel || !generalDate) return;
+
+        const { error } = await supabase
+            .from('general_dates')
+            .insert([{
+                label: generalLabel,
+                target_date: generalDate,
+                notify_manager: true
+            }]);
+
+        if (!error) {
+            setGeneralLabel('');
+            setGeneralDate('');
+            fetchGeneralDates();
+        }
+    };
+
+    const handleDeleteGeneralDate = async (id: number) => {
+        await supabase.from('general_dates').delete().eq('id', id);
+        fetchGeneralDates();
+    };
+
+    const openGeneralDatesModal = () => {
+        fetchGeneralDates();
+        setShowGeneralDatesModal(true);
     };
 
     // Mock data for low stock (will be replaced with real data later)
@@ -148,7 +207,12 @@ export default function Dashboard() {
                                 <div className="text-sm text-blue-700">
                                     {upcomingDates.slice(0, 2).map((d, i) => (
                                         <div key={d.id} className="truncate">
-                                            {d.label}: {d.items?.name} ({new Date(d.target_date).toLocaleDateString()})
+                                            {d.type === 'item' ? (
+                                                <span>{d.label}: {d.items?.name}</span>
+                                            ) : (
+                                                <span className="font-medium text-blue-800">{d.label}</span>
+                                            )}
+                                            <span className="text-blue-600 ml-1">({new Date(d.target_date).toLocaleDateString()})</span>
                                         </div>
                                     ))}
                                     {upcomingDates.length > 2 && (
@@ -163,7 +227,17 @@ export default function Dashboard() {
 
             {/* 3. Quick Actions - The "Buffet" */}
             <section>
-                <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-lg font-semibold">Quick Actions</h3>
+                    {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
+                        <button
+                            onClick={openGeneralDatesModal}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                            <Calendar size={14} /> Manage General Dates
+                        </button>
+                    )}
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
                     {/* Receive Stock */}
@@ -245,6 +319,72 @@ export default function Dashboard() {
                     )}
                 </div>
             </section>
+
+            {/* General Dates Modal */}
+            {showGeneralDatesModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-in fade-in">
+                    <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-xl">
+                        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                            <h3 className="font-bold text-lg">Manage General Dates</h3>
+                            <button onClick={() => setShowGeneralDatesModal(false)} className="text-gray-400 hover:text-gray-600">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            {/* Add New */}
+                            <div className="flex gap-2 items-end">
+                                <div className="flex-1">
+                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Event Name</label>
+                                    <input
+                                        type="text"
+                                        value={generalLabel}
+                                        onChange={(e) => setGeneralLabel(e.target.value)}
+                                        placeholder="e.g. License Renewal"
+                                        className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary outline-none"
+                                    />
+                                </div>
+                                <div className="w-32">
+                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Date</label>
+                                    <input
+                                        type="date"
+                                        value={generalDate}
+                                        onChange={(e) => setGeneralDate(e.target.value)}
+                                        className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-primary outline-none"
+                                    />
+                                </div>
+                                <button
+                                    onClick={handleAddGeneralDate}
+                                    className="h-10 w-10 bg-primary text-white rounded-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+                                >
+                                    <Plus size={20} />
+                                </button>
+                            </div>
+
+                            {/* List */}
+                            <div className="space-y-2 max-h-60 overflow-y-auto">
+                                {generalDatesList.length === 0 ? (
+                                    <p className="text-center text-gray-400 text-sm py-4">No general dates added.</p>
+                                ) : (
+                                    generalDatesList.map(date => (
+                                        <div key={date.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                                            <div>
+                                                <p className="font-medium text-sm">{date.label}</p>
+                                                <p className="text-xs text-gray-500">{new Date(date.target_date).toLocaleDateString()}</p>
+                                            </div>
+                                            <button
+                                                onClick={() => handleDeleteGeneralDate(date.id)}
+                                                className="text-gray-400 hover:text-red-500 transition-colors"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

@@ -179,7 +179,7 @@ export default function EditItemPage() {
         }
 
         // 4. Update Important Dates (Manager Only)
-        if (userRole === 'manager' || userRole === 'admin') {
+        if (userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') {
             // Delete removed dates
             if (deletedDateIds.length > 0) {
                 await supabase.from('item_dates').delete().in('id', deletedDateIds);
@@ -501,7 +501,7 @@ export default function EditItemPage() {
                     </div>
 
                     {/* Important Dates Section (Manager Only) */}
-                    {(userRole === 'manager' || userRole === 'admin') && (
+                    {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
                         <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
                             <div className="bg-gray-50 px-6 py-3 border-b border-border flex justify-between items-center">
                                 <h2 className="font-semibold text-foreground flex items-center gap-2">

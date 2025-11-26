@@ -25,11 +25,7 @@ export async function GET() {
         const nextWeekStr = nextWeek.toISOString().split('T')[0];
 
         // 2. Query item_dates
-        // Find dates that are:
-        // - Within the next 7 days (or past due and not sent)
-        // - notify_manager is true
-        // - reminder_sent is false
-        const { data: upcomingDates, error } = await supabaseAdmin
+        const { data: itemDates, error: itemError } = await supabaseAdmin
             .from('item_dates')
             .select(`
                 id,
@@ -45,29 +41,53 @@ export async function GET() {
             .eq('notify_manager', true)
             .eq('reminder_sent', false);
 
-        if (error) {
-            console.error('Error fetching dates:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+        if (itemError) {
+            console.error('Error fetching item dates:', itemError);
         }
 
-        if (!upcomingDates || upcomingDates.length === 0) {
+        // 3. Query general_dates
+        const { data: generalDates, error: generalError } = await supabaseAdmin
+            .from('general_dates')
+            .select(`
+                id,
+                label,
+                target_date
+            `)
+            .lte('target_date', nextWeekStr)
+            .eq('notify_manager', true)
+            .eq('reminder_sent', false);
+
+        if (generalError) {
+            console.error('Error fetching general dates:', generalError);
+        }
+
+        const allReminders = [
+            ...(itemDates || []).map(d => ({ ...d, type: 'item' })),
+            ...(generalDates || []).map(d => ({ ...d, type: 'general', items: null }))
+        ];
+
+        if (allReminders.length === 0) {
             console.log('✅ No upcoming reminders found.');
             return NextResponse.json({ message: 'No reminders to send', count: 0 });
         }
 
-        console.log(`Found ${upcomingDates.length} upcoming dates.`);
+        console.log(`Found ${allReminders.length} upcoming dates.`);
 
-        // 3. Send Emails
+        // 4. Send Emails
         // For MVP, we'll send to a configured ADMIN_EMAIL or log it.
         // In a real app, we'd fetch all users with role='manager' and email them.
         const recipient = process.env.ADMIN_EMAIL || 'manager@loudbaby.com';
 
-        const emailPromises = upcomingDates.map(async (record) => {
-            const item = record.items as any; // Type assertion for joined data
+        const emailPromises = allReminders.map(async (record: any) => {
             const daysUntil = Math.ceil((new Date(record.target_date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-            const subject = `Reminder: ${record.label} for ${item.name}`;
-            const text = `
+            let subject = '';
+            let text = '';
+
+            if (record.type === 'item') {
+                const item = record.items;
+                subject = `Reminder: ${record.label} for ${item.name}`;
+                text = `
 Hello Manager,
 
 This is a reminder for the following item:
@@ -79,7 +99,22 @@ Date: ${record.target_date} (${daysUntil <= 0 ? 'Due Today/Overdue' : `In ${days
 Please take necessary action.
 
 - Loud Baby Ops
-            `;
+                `;
+            } else {
+                subject = `Reminder: ${record.label}`;
+                text = `
+Hello Manager,
+
+This is a general reminder:
+
+Event: ${record.label}
+Date: ${record.target_date} (${daysUntil <= 0 ? 'Due Today/Overdue' : `In ${daysUntil} days`})
+
+Please take necessary action.
+
+- Loud Baby Ops
+                `;
+            }
 
             // Send Email
             const emailResult = await sendReminderEmail({
@@ -88,15 +123,16 @@ Please take necessary action.
                 text,
             });
 
-            // 4. Update reminder_sent flag
+            // 5. Update reminder_sent flag
             if (emailResult.success) {
+                const table = record.type === 'item' ? 'item_dates' : 'general_dates';
                 await supabaseAdmin
-                    .from('item_dates')
+                    .from(table)
                     .update({ reminder_sent: true })
                     .eq('id', record.id);
             }
 
-            return { id: record.id, success: emailResult.success };
+            return { id: record.id, type: record.type, success: emailResult.success };
         });
 
         const results = await Promise.all(emailPromises);
