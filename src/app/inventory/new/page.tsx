@@ -5,7 +5,9 @@ import React, { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2 } from 'lucide-react';
+import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2, Barcode as BarcodeIcon } from 'lucide-react';
+import BarcodeGenerator from '@/components/BarcodeGenerator';
+import BarcodePrintButton from '@/components/BarcodePrintButton';
 
 export default function NewItemPage() {
   const supabase = createBrowserClient(
@@ -18,6 +20,7 @@ export default function NewItemPage() {
   const [itemName, setItemName] = useState('');
   const [category, setCategory] = useState('Retail');
   const [barcode, setBarcode] = useState('');
+  const [barcodeNumber, setBarcodeNumber] = useState('');
   const [location, setLocation] = useState(''); // Legacy storage_location
   const [quantity, setQuantity] = useState<number | ''>('');
   const [uom, setUom] = useState('');
@@ -32,6 +35,13 @@ export default function NewItemPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Helper function to generate unique 10-digit barcode number
+  const generateBarcodeNumber = () => {
+    // Generate random 10-digit number
+    const randomNumber = Math.floor(1000000000 + Math.random() * 9000000000);
+    return randomNumber.toString();
+  };
 
   // Helper function to convert to smart title case
   // Preserves single letters (S, M, L) and handles abbreviations (H&S)
@@ -98,6 +108,9 @@ export default function NewItemPage() {
       return;
     }
 
+    // 0.5. Auto-generate barcode number if empty
+    const finalBarcodeNumber = barcodeNumber.trim() || generateBarcodeNumber();
+
     // 1. Insert Item
     const { data: newItem, error: insertError } = await supabase
       .from('items')
@@ -110,6 +123,7 @@ export default function NewItemPage() {
         cost_per_unit: cost === '' ? 0 : cost,
         alert_threshold: threshold === '' ? 0 : threshold,
         barcode: barcode || null,
+        barcode_number: finalBarcodeNumber,
       })
       .select()
       .single();
@@ -287,6 +301,59 @@ export default function NewItemPage() {
                   className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                 />
               </div>
+
+            </div>
+          </div>
+
+          {/* Barcode & Labels Section */}
+          <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+            <div className="bg-gray-50 px-6 py-3 border-b border-border">
+              <h2 className="font-semibold text-foreground flex items-center gap-2">
+                <BarcodeIcon size={18} />
+                Barcode & Labels
+              </h2>
+            </div>
+            <div className="p-6 space-y-6">
+
+              {/* Barcode Number Input */}
+              <div>
+                <label htmlFor="barcodeNumber" className="block text-sm font-medium text-foreground mb-2">
+                  Printable Barcode Number
+                  <span className="text-gray-400 text-xs font-normal ml-2">(Auto-generated if left blank)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    id="barcodeNumber"
+                    value={barcodeNumber}
+                    onChange={(e) => setBarcodeNumber(e.target.value)}
+                    placeholder="Will auto-generate 10-digit number on save"
+                    className="flex-1 h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setBarcodeNumber(generateBarcodeNumber())}
+                    className="px-4 h-12 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+                  >
+                    Generate
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-gray-500">
+                  This is separate from the scanned barcode. Used for printing labels.
+                </p>
+              </div>
+
+              {/* Barcode Display */}
+              {barcodeNumber && (
+                <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Preview
+                    </label>
+                    <BarcodeGenerator value={barcodeNumber} />
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
