@@ -4,6 +4,8 @@
 import './globals.css';
 import NoSSRAppShell from '@/components/NoSSRAppShell';
 
+export const dynamic = 'force-dynamic';
+
 export default function RootLayout({
   children,
 }: {
