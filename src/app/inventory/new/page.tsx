@@ -4,7 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2 } from 'lucide-react';
 
 export default function NewItemPage() {
@@ -13,6 +13,7 @@ export default function NewItemPage() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [itemName, setItemName] = useState('');
   const [category, setCategory] = useState('Retail');
@@ -32,17 +33,39 @@ export default function NewItemPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Helper function to convert to title case
+  // Helper function to convert to smart title case
+  // Preserves single letters (S, M, L) and handles abbreviations (H&S)
   const toTitleCase = (str: string) => {
     return str
-      .toLowerCase()
       .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .map(word => {
+        // If the word is a single character, keep it uppercase
+        if (word.length === 1) {
+          return word.toUpperCase();
+        }
+
+        // If word contains &, preserve each part's capitalization for abbreviations
+        if (word.includes('&')) {
+          return word.split('&').map(part => {
+            if (part.length === 1) return part.toUpperCase();
+            return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+          }).join('&');
+        }
+
+        // Standard title case for regular words
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
       .join(' ');
   };
 
   useEffect(() => {
     const fetchLocations = async () => {
+      // Check if barcode was passed from scan page
+      const barcodeParam = searchParams.get('barcode');
+      if (barcodeParam) {
+        setBarcode(barcodeParam);
+      }
+
       const { data, error } = await supabase
         .from('locations')
         .select('*')
@@ -61,7 +84,7 @@ export default function NewItemPage() {
       setIsLoading(false);
     };
     fetchLocations();
-  }, [supabase]);
+  }, [supabase, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,7 +115,7 @@ export default function NewItemPage() {
       .single();
 
     if (insertError || !newItem) {
-      setError(`Failed to add item: ${insertError?.message}`);
+      setError(`Failed to add item: ${insertError?.message} `);
       setIsSubmitting(false);
       return;
     }

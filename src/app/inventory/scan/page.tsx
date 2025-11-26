@@ -32,9 +32,8 @@ export default function ScanPage() {
         .single();
 
       if (dbError || !data) {
-        setError(`Item not found for barcode: ${barcode}`);
-        setLoading(false);
-        // Keep scanner closed, show error
+        // Redirect to new item page with barcode prepopulated
+        router.push(`/inventory/new?barcode=${encodeURIComponent(barcode)}`);
       } else {
         // Redirect to item edit page to show details
         router.push(`/inventory/edit?id=${data.id}`);

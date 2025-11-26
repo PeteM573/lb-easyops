@@ -38,12 +38,28 @@ export default function EditItemPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
-    // Helper function to convert to title case
+    // Helper function to convert to smart title case
+    // Preserves single letters (S, M, L) and handles abbreviations (H&S)
     const toTitleCase = (str: string) => {
         return str
-            .toLowerCase()
             .split(' ')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .map(word => {
+                // If the word is a single character, keep it uppercase
+                if (word.length === 1) {
+                    return word.toUpperCase();
+                }
+
+                // If word contains &, preserve each part's capitalization for abbreviations
+                if (word.includes('&')) {
+                    return word.split('&').map(part => {
+                        if (part.length === 1) return part.toUpperCase();
+                        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+                    }).join('&');
+                }
+
+                // Standard title case for regular words
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
             .join(' ');
     };
 
