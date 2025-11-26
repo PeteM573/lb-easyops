@@ -1,10 +1,9 @@
-// src/app/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils } from 'lucide-react';
+import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar } from 'lucide-react';
 
 interface Task {
     id: number;
@@ -12,6 +11,13 @@ interface Task {
     is_complete: boolean;
     assigned_to: string | null;
     profiles: { full_name: string }[] | null;
+}
+
+interface UpcomingDate {
+    id: number;
+    label: string;
+    target_date: string;
+    items: { name: string } | null;
 }
 
 export default function Dashboard() {
@@ -24,12 +30,26 @@ export default function Dashboard() {
     const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
+    // Manager-only state
+    const [userRole, setUserRole] = useState<string>('staff');
+    const [upcomingDates, setUpcomingDates] = useState<UpcomingDate[]>([]);
+
     useEffect(() => {
         const fetchTasks = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
                 setUserId(user.id);
 
+                // Fetch User Role
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+                const role = profile?.role || 'staff';
+                setUserRole(role);
+
+                // Fetch Tasks
                 const { data } = await supabase
                     .from('tasks')
                     .select(`
@@ -45,6 +65,32 @@ export default function Dashboard() {
                     .limit(5);
 
                 setTasks(data || []);
+
+                // Fetch Upcoming Dates (Manager Only)
+                if (role === 'manager' || role === 'admin') {
+                    const today = new Date();
+                    const nextWeek = new Date();
+                    nextWeek.setDate(today.getDate() + 7);
+
+                    // Format dates as YYYY-MM-DD
+                    const nextWeekStr = nextWeek.toISOString().split('T')[0];
+
+                    const { data: datesData } = await supabase
+                        .from('item_dates')
+                        .select(`
+                            id,
+                            label,
+                            target_date,
+                            items ( name )
+                        `)
+                        .lte('target_date', nextWeekStr)
+                        .order('target_date', { ascending: true })
+                        .limit(5);
+
+                    if (datesData) {
+                        setUpcomingDates(datesData as any);
+                    }
+                }
             }
             setLoading(false);
         };
@@ -77,7 +123,7 @@ export default function Dashboard() {
             </section>
 
             {/* 2. Critical Alerts (Only show if needed) */}
-            {(lowStockCount > 0 || tasks.length > 0) && (
+            {(lowStockCount > 0 || tasks.length > 0 || upcomingDates.length > 0) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {lowStockCount > 0 && (
                         <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-4">
@@ -87,6 +133,28 @@ export default function Dashboard() {
                             <div>
                                 <p className="font-bold text-amber-900">{lowStockCount} Items Low Stock</p>
                                 <p className="text-sm text-amber-700">Check inventory report</p>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Upcoming Dates Alert (Manager Only) */}
+                    {upcomingDates.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center gap-4">
+                            <div className="p-3 bg-blue-100 text-blue-700 rounded-full">
+                                <Calendar size={24} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-bold text-blue-900">{upcomingDates.length} Upcoming Dates</p>
+                                <div className="text-sm text-blue-700">
+                                    {upcomingDates.slice(0, 2).map((d, i) => (
+                                        <div key={d.id} className="truncate">
+                                            {d.label}: {d.items?.name} ({new Date(d.target_date).toLocaleDateString()})
+                                        </div>
+                                    ))}
+                                    {upcomingDates.length > 2 && (
+                                        <div className="text-xs opacity-75">+{upcomingDates.length - 2} more</div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}

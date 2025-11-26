@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2, Edit } from 'lucide-react';
+import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2, Edit, Calendar, Trash2, Plus } from 'lucide-react';
 
 export default function EditItemPage() {
     const supabase = createBrowserClient(
@@ -28,6 +28,11 @@ export default function EditItemPage() {
     const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
     const [stockMap, setStockMap] = useState<Record<number, number>>({});
 
+    // Important Dates State
+    const [userRole, setUserRole] = useState<string>('staff');
+    const [dates, setDates] = useState<{ id?: number; label: string; target_date: string; notify_manager: boolean }[]>([]);
+    const [deletedDateIds, setDeletedDateIds] = useState<number[]>([]);
+
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -48,6 +53,17 @@ export default function EditItemPage() {
                 setError('No item ID provided');
                 setIsLoading(false);
                 return;
+            }
+
+            // 0. Fetch User Role
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', user.id)
+                    .single();
+                if (profile) setUserRole(profile.role || 'staff');
             }
 
             // 1. Fetch Item
@@ -83,6 +99,22 @@ export default function EditItemPage() {
             // Fill with actual data
             stockData?.forEach(s => initialStockMap[s.location_id] = s.quantity);
             setStockMap(initialStockMap);
+
+            // 4. Fetch Important Dates
+            const { data: datesData } = await supabase
+                .from('item_dates')
+                .select('*')
+                .eq('item_id', itemId)
+                .order('target_date', { ascending: true });
+
+            if (datesData) {
+                setDates(datesData.map(d => ({
+                    id: d.id,
+                    label: d.label,
+                    target_date: d.target_date,
+                    notify_manager: d.notify_manager
+                })));
+            }
 
             // Pre-fill form
             setItemName(itemData.name || '');
@@ -140,21 +172,69 @@ export default function EditItemPage() {
             .from('item_locations')
             .upsert(upsertData, { onConflict: 'item_id, location_id' });
 
-        setIsSubmitting(false);
-
         if (locUpdateError) {
             setError(`Failed to update stock locations: ${locUpdateError.message}`);
-        } else {
-            setSuccess(`Successfully updated "${itemName}"!`);
-            setTimeout(() => {
-                router.push('/inventory/report');
-            }, 1500);
+            setIsSubmitting(false);
+            return;
         }
+
+        // 4. Update Important Dates (Manager Only)
+        if (userRole === 'manager' || userRole === 'admin') {
+            // Delete removed dates
+            if (deletedDateIds.length > 0) {
+                await supabase.from('item_dates').delete().in('id', deletedDateIds);
+            }
+
+            // Upsert current dates
+            if (dates.length > 0) {
+                const datesToUpsert = dates.map(d => ({
+                    id: d.id, // Include ID if it exists (update), otherwise undefined (insert)
+                    item_id: Number(itemId),
+                    label: d.label,
+                    target_date: d.target_date,
+                    notify_manager: d.notify_manager,
+                    reminder_sent: false // Reset reminder if updated? Or keep? For now reset to ensure new reminder if date changed.
+                }));
+
+                const { error: datesError } = await supabase
+                    .from('item_dates')
+                    .upsert(datesToUpsert);
+
+                if (datesError) {
+                    console.error('Error updating dates:', datesError);
+                    // Non-blocking error, just log it
+                }
+            }
+        }
+
+        setIsSubmitting(false);
+        setSuccess(`Successfully updated "${itemName}"!`);
+        setTimeout(() => {
+            router.push('/inventory/report');
+        }, 1500);
     };
 
     const handleStockChange = (locId: number, val: string) => {
         const numVal = val === '' ? 0 : parseFloat(val);
         setStockMap(prev => ({ ...prev, [locId]: numVal }));
+    };
+
+    const handleAddDate = () => {
+        setDates([...dates, { label: '', target_date: '', notify_manager: true }]);
+    };
+
+    const handleRemoveDate = (index: number) => {
+        const dateToRemove = dates[index];
+        if (dateToRemove.id) {
+            setDeletedDateIds([...deletedDateIds, dateToRemove.id]);
+        }
+        setDates(dates.filter((_, i) => i !== index));
+    };
+
+    const handleDateChange = (index: number, field: keyof typeof dates[0], value: any) => {
+        const newDates = [...dates];
+        newDates[index] = { ...newDates[index], [field]: value };
+        setDates(newDates);
     };
 
     if (isLoading) {
@@ -419,6 +499,74 @@ export default function EditItemPage() {
 
                         </div>
                     </div>
+
+                    {/* Important Dates Section (Manager Only) */}
+                    {(userRole === 'manager' || userRole === 'admin') && (
+                        <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+                            <div className="bg-gray-50 px-6 py-3 border-b border-border flex justify-between items-center">
+                                <h2 className="font-semibold text-foreground flex items-center gap-2">
+                                    <Calendar size={18} />
+                                    Important Dates
+                                </h2>
+                                <span className="text-xs font-medium bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                    Manager Only
+                                </span>
+                            </div>
+                            <div className="p-6 space-y-4">
+                                {dates.map((date, index) => (
+                                    <div key={index} className="flex flex-col md:flex-row gap-3 items-start md:items-end bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                        <div className="flex-1 w-full">
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Label</label>
+                                            <input
+                                                type="text"
+                                                value={date.label}
+                                                onChange={(e) => handleDateChange(index, 'label', e.target.value)}
+                                                placeholder="e.g., Expiry Date"
+                                                className="block w-full h-10 px-3 rounded-lg border border-input bg-white focus:ring-2 focus:ring-primary outline-none text-sm"
+                                            />
+                                        </div>
+                                        <div className="w-full md:w-40">
+                                            <label className="block text-xs font-medium text-gray-500 mb-1">Date</label>
+                                            <input
+                                                type="date"
+                                                value={date.target_date}
+                                                onChange={(e) => handleDateChange(index, 'target_date', e.target.value)}
+                                                className="block w-full h-10 px-3 rounded-lg border border-input bg-white focus:ring-2 focus:ring-primary outline-none text-sm"
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-2 h-10">
+                                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={date.notify_manager}
+                                                    onChange={(e) => handleDateChange(index, 'notify_manager', e.target.checked)}
+                                                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                />
+                                                <span className="text-sm text-gray-600">Notify</span>
+                                            </label>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveDate(index)}
+                                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                                                title="Remove Date"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                <button
+                                    type="button"
+                                    onClick={handleAddDate}
+                                    className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                                >
+                                    <Plus size={16} />
+                                    Add Date
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Submit Button */}
                     <div className="flex gap-3">
