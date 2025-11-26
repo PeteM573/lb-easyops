@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "npx next dev",
-    "build": "npx next build",
-    "start": "npx next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
@@ -16,21 +16,20 @@
     "autoprefixer": "^10.4.22",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.554.0",
-    "next": "16.0.3",
+    "next": "14.2.18",
     "ngrok": "^5.0.0-beta.2",
     "postcss": "^8.5.6",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "square": "^43.2.0",
     "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "babel-plugin-react-compiler": "1.0.0",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "eslint": "^9",
-    "eslint-config-next": "16.0.3",
+    "eslint-config-next": "14.2.18",
     "typescript": "^5"
   }
 }
