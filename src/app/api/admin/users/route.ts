@@ -68,10 +68,10 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: authError.message }, { status: 500 });
         }
 
-        // Get profiles for all users
+        // Get profiles for all users (email comes from auth data, not profiles)
         const { data: profiles, error: profilesError } = await supabaseAdmin
             .from('profiles')
-            .select('id, email, role, created_at');
+            .select('id, role, created_at');
 
         if (profilesError) {
             console.error('Error fetching profiles:', profilesError);
@@ -125,12 +125,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: authError.message }, { status: 400 });
         }
 
-        // Create profile entry
+        // Create profile entry (email is in auth.users, not profiles)
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .insert({
                 id: authData.user.id,
-                email: email,
                 role: 'employee' // Default role
             });
 
