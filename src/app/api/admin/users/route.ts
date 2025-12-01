@@ -68,10 +68,10 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: authError.message }, { status: 500 });
         }
 
-        // Get profiles for all users (email comes from auth data, not profiles)
+        // Get profiles for all users (email and created_at come from auth data, not profiles)
         const { data: profiles, error: profilesError } = await supabaseAdmin
             .from('profiles')
-            .select('id, role, created_at');
+            .select('id, role');
 
         if (profilesError) {
             console.error('Error fetching profiles:', profilesError);
