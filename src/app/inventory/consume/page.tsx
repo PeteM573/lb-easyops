@@ -14,7 +14,8 @@ interface Item {
     stock_quantity: number;
     unit: string;
     storage_location: string | null;
-    barcode: string | null;
+    barcode_number: string | null;
+    cost_per_unit?: number; // For audit logging
 }
 
 export default function ConsumeStockPage() {
@@ -170,7 +171,23 @@ export default function ConsumeStockPage() {
             console.error('Error updating total stock:', itemError);
         }
 
-        // 3. Update Local State (Optimistic UI update)
+        // 3. Log to Audit Log
+        const { data: { user } } = await supabase.auth.getUser();
+        const changeType = reason === 'Wasted' || reason === 'Expired' || reason === 'Damaged' ? 'WASTE' : 'CONSUME';
+        if (user) {
+            await supabase
+                .from('inventory_log')
+                .insert({
+                    item_id: selectedItem.id,
+                    change_type: changeType,
+                    quantity_change: -Number(consumeQty), // Negative for consumption
+                    unit_cost_at_time: selectedItem.cost_per_unit || 0,
+                    user_id: user.id,
+                    notes: `${reason} from ${locations.find(l => l.id === locationId)?.name || 'Unknown Location'}`
+                });
+        }
+
+        // 4. Update Local State (Optimistic UI update)
         setItems((prev) =>
             prev.map((i) => i.id === selectedItem.id ? { ...i, stock_quantity: newTotal } : i)
         );
@@ -184,8 +201,8 @@ export default function ConsumeStockPage() {
     const handleBarcodeScan = (barcode: string) => {
         setScanError('');
 
-        // Find item by barcode
-        const item = items.find((i) => i.barcode === barcode);
+        // Find item by barcode_number
+        const item = items.find((i) => i.barcode_number === barcode);
 
         if (item) {
             // Auto-select the item
@@ -253,8 +270,8 @@ export default function ConsumeStockPage() {
                                     <div className="flex justify-between items-start w-full mb-2">
                                         <h3 className="font-semibold text-lg text-foreground line-clamp-1">{item.name}</h3>
                                         <span className={`text-xs font-bold px-2 py-1 rounded-full ${item.stock_quantity <= 5
-                                                ? 'bg-red-100 text-red-700'
-                                                : 'bg-green-100 text-green-700'
+                                            ? 'bg-red-100 text-red-700'
+                                            : 'bg-green-100 text-green-700'
                                             }`}>
                                             {item.stock_quantity} {item.unit}
                                         </span>

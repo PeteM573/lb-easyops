@@ -26,6 +26,7 @@ export default function EditItemPage() {
     const [uom, setUom] = useState('');
     const [cost, setCost] = useState<number | ''>('');
     const [threshold, setThreshold] = useState<number | ''>('');
+    const [isAutoDeduct, setIsAutoDeduct] = useState(false);
 
     // Multi-location state
     const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
@@ -147,6 +148,7 @@ export default function EditItemPage() {
             setCategory(itemData.category || 'Retail');
             setBarcode(itemData.barcode || '');
             setBarcodeNumber(itemData.barcode_number || '');
+            setIsAutoDeduct(itemData.is_auto_deduct || false);
             setLocation(itemData.storage_location || '');
             setUom(itemData.unit_of_measure || '');
             setCost(itemData.cost_per_unit ?? '');
@@ -183,6 +185,7 @@ export default function EditItemPage() {
                 alert_threshold: threshold === '' ? 0 : threshold,
                 barcode: barcode || null,
                 barcode_number: finalBarcodeNumber,
+                is_auto_deduct: isAutoDeduct,
             })
             .eq('id', itemId);
 
@@ -395,21 +398,6 @@ export default function EditItemPage() {
                                 </select>
                             </div>
 
-                            {/* Barcode */}
-                            <div>
-                                <label htmlFor="barcode" className="block text-sm font-medium text-foreground mb-2">
-                                    Barcode / SKU <span className="text-gray-400 text-xs font-normal">(Optional)</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    id="barcode"
-                                    value={barcode}
-                                    onChange={(e) => setBarcode(e.target.value)}
-                                    placeholder="e.g., 123456789012"
-                                    className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
-                                />
-                            </div>
-
                             {/* Storage Location (Legacy/Display) */}
                             <div>
                                 <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
@@ -593,6 +581,28 @@ export default function EditItemPage() {
                                 </div>
                             )}
 
+                            {/* Auto-Deduct on Sale (Manager Only) */}
+                            {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
+                                <div className="border-t border-gray-100 pt-6">
+                                    <label className="flex items-center gap-3 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={isAutoDeduct}
+                                            onChange={(e) => setIsAutoDeduct(e.target.checked)}
+                                            className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary cursor-pointer"
+                                        />
+                                        <div>
+                                            <span className="text-sm font-medium text-foreground">
+                                                Auto-Deduct on Sale
+                                            </span>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                Automatically reduce inventory when sold via Square POS
+                                            </p>
+                                        </div>
+                                    </label>
+                                </div>
+                            )}
+
                         </div>
                     </div>
 
@@ -693,6 +703,6 @@ export default function EditItemPage() {
 
                 </form>
             </main>
-        </div>
+        </div >
     );
 }

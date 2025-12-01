@@ -14,7 +14,8 @@ type Item = {
   stock_quantity: number;
   unit_of_measure: string;
   storage_location: string;
-  barcode?: string; // Barcode/SKU for scanning
+  barcode_number?: string; // Updated to use barcode_number
+  cost_per_unit?: number; // For audit logging
   image_url?: string; // Optional: in case you add images later
 };
 
@@ -143,7 +144,22 @@ export default function ReceiveStockPage() {
       // Non-blocking error, but good to know
     }
 
-    // 3. Update Local State (Optimistic UI update)
+    // 3. Log to Audit Log
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      await supabase
+        .from('inventory_log')
+        .insert({
+          item_id: selectedItem.id,
+          change_type: 'RECEIVE',
+          quantity_change: Number(receiveQty),
+          unit_cost_at_time: selectedItem.cost_per_unit || 0,
+          user_id: user.id,
+          notes: `Received at ${locations.find(l => l.id === selectedLocationId)?.name || 'Unknown Location'}`
+        });
+    }
+
+    // 4. Update Local State (Optimistic UI update)
     setItems((prev) =>
       prev.map((i) => i.id === selectedItem.id ? { ...i, stock_quantity: newTotal } : i)
     );
@@ -158,8 +174,8 @@ export default function ReceiveStockPage() {
   const handleBarcodeScan = (barcode: string) => {
     setScanError('');
 
-    // Find item by barcode
-    const item = items.find((i) => i.barcode === barcode);
+    // Find item by barcode_number
+    const item = items.find((i) => i.barcode_number === barcode);
 
     if (item) {
       // Auto-select the item

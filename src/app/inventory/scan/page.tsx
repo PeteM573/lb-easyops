@@ -24,16 +24,16 @@ export default function ScanPage() {
     setError(null);
 
     try {
-      // Fetch item from database
+      // Fetch item from database by barcode_number
       const { data, error: dbError } = await supabase
         .from('items')
         .select('id, name')
-        .eq('barcode', barcode)
+        .eq('barcode_number', barcode)
         .single();
 
       if (dbError || !data) {
-        // Redirect to new item page with barcode prepopulated
-        router.push(`/inventory/new?barcode=${encodeURIComponent(barcode)}`);
+        // Redirect to new item page with barcode_number prepopulated
+        router.push(`/inventory/new?barcode_number=${encodeURIComponent(barcode)}`);
       } else {
         // Redirect to item edit page to show details
         router.push(`/inventory/edit?id=${data.id}`);
