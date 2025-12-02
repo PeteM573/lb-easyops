@@ -125,12 +125,14 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: authError.message }, { status: 400 });
         }
 
-        // Create profile entry (email is in auth.users, not profiles)
+        // Create/update profile entry (use upsert in case there's a trigger that auto-creates profiles)
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
-            .insert({
+            .upsert({
                 id: authData.user.id,
                 role: 'employee' // Default role
+            }, {
+                onConflict: 'id'
             });
 
         if (profileError) {
@@ -150,7 +152,12 @@ export async function POST(req: NextRequest) {
         });
     } catch (error) {
         console.error('Error in POST /api/admin/users:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+        // Return more detailed error for debugging
+        const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+        return NextResponse.json({
+            error: 'Internal server error',
+            details: errorMessage
+        }, { status: 500 });
     }
 }
 
