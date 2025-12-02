@@ -113,6 +113,15 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
         }
 
+        // Check if service role key is configured
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            console.error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+            return NextResponse.json({
+                error: 'Server configuration error',
+                details: 'Admin API key not configured'
+            }, { status: 500 });
+        }
+
         // Create user in Supabase Auth
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
