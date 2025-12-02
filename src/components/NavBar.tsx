@@ -4,6 +4,7 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 export default function NavBar() {
   const supabase = createBrowserClient(
@@ -11,11 +12,33 @@ export default function NavBar() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
   const router = useRouter();
+  const [userRole, setUserRole] = useState<string>('');
+
+  // Get user role
+  useEffect(() => {
+    const fetchRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        if (profile) {
+          setUserRole(profile.role || '');
+        }
+      }
+    };
+    fetchRole();
+  }, [supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
+
+  const isManager = userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin';
 
   return (
     <nav className="bg-white shadow-md">
@@ -33,6 +56,10 @@ export default function NavBar() {
                 <Link href="/inventory/scan" className="block w-full text-center bg-gray-700 hover:bg-gray-800 text-white font-bold py-3 px-4 rounded-lg transition duration-300">Scan Item</Link>
                 {/* Locations link */}
                 <Link href="/inventory/locations" className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Locations</Link>
+                {/* Manager-only: User Management */}
+                {isManager && (
+                  <Link href="/admin/users" className="text-purple-600 hover:text-purple-700 px-3 py-2 rounded-md text-sm font-medium">Manage Users</Link>
+                )}
               </div>
             </div>
           </div>

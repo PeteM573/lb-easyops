@@ -2,6 +2,7 @@
 'use client'
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Package, ScanBarcode, ClipboardList, Menu, LogOut } from 'lucide-react';
 import { useState } from 'react';
@@ -34,9 +35,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* --- Desktop Sidebar --- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-border h-screen sticky top-0">
         <div className="p-6 border-b border-border">
-          {/* Placeholder for Logo */}
-          <h1 className="text-2xl font-bold text-primary tracking-tight">Loud Baby</h1>
-          <p className="text-xs text-muted-foreground">Easy Ops</p>
+          <Image
+            src="/LB_LOGO_multi.png"
+            alt="Loud Baby"
+            width={180}
+            height={60}
+            className="w-auto h-12"
+            priority
+          />
+          <p className="text-xs text-muted-foreground mt-2">Easy Ops</p>
         </div>
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => {
@@ -47,8 +54,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.name}
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
-                    ? 'bg-primary/10 text-primary font-medium'
-                    : 'text-gray-600 hover:bg-gray-50'
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'text-gray-600 hover:bg-gray-50'
                   }`}
               >
                 <Icon size={20} />
@@ -70,7 +77,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* --- Mobile Header --- */}
       <header className="md:hidden h-16 bg-white border-b border-border flex items-center justify-between px-4 sticky top-0 z-10">
-        <h1 className="text-xl font-bold text-primary">Loud Baby</h1>
+        <Image
+          src="/LB_LOGO_multi.png"
+          alt="Loud Baby"
+          width={120}
+          height={40}
+          className="w-auto h-8"
+          priority
+        />
         <button onClick={handleLogout} className="p-2 text-gray-500">
           <LogOut size={20} />
         </button>

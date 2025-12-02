@@ -123,6 +123,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Create user in Supabase Auth
+        console.log('Creating user with email:', email);
         const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
@@ -134,7 +135,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: authError.message }, { status: 400 });
         }
 
+        console.log('User created successfully, ID:', authData.user.id);
+
         // Create/update profile entry (use upsert in case there's a trigger that auto-creates profiles)
+        console.log('Upserting profile for user:', authData.user.id);
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .upsert({
@@ -148,17 +152,22 @@ export async function POST(req: NextRequest) {
             console.error('Error creating profile:', profileError);
             // Try to clean up auth user if profile creation failed
             await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-            return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
+            return NextResponse.json({ error: 'Failed to create user profile', details: profileError.message }, { status: 500 });
         }
 
-        return NextResponse.json({
+        console.log('Profile upserted successfully');
+
+        const responseData = {
             success: true,
             user: {
                 id: authData.user.id,
                 email: authData.user.email,
                 role: 'employee'
             }
-        });
+        };
+
+        console.log('Returning success response:', responseData);
+        return NextResponse.json(responseData);
     } catch (error) {
         console.error('Error in POST /api/admin/users:', error);
         // Return more detailed error for debugging
@@ -204,6 +213,47 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ success: true });
     } catch (error) {
         console.error('Error in PATCH /api/admin/users:', error);
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+}
+
+// DELETE: Remove user
+export async function DELETE(req: NextRequest) {
+    const { authorized } = await verifyManagerRole(req);
+
+    if (!authorized) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    try {
+        const { searchParams } = new URL(req.url);
+        const userId = searchParams.get('userId');
+
+        if (!userId) {
+            return NextResponse.json({ error: 'userId required' }, { status: 400 });
+        }
+
+        // Delete from profiles table first
+        const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .delete()
+            .eq('id', userId);
+
+        if (profileError) {
+            console.error('Error deleting profile:', profileError);
+        }
+
+        // Delete user from auth
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+
+        if (authError) {
+            console.error('Error deleting user:', authError);
+            return NextResponse.json({ error: authError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error('Error in DELETE /api/admin/users:', error);
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 }

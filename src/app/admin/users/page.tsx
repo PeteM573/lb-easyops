@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Users, Shield, ArrowLeft, Check, X, Loader2 } from 'lucide-react';
+import { UserPlus, Users, Shield, ArrowLeft, Check, X, Loader2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
 interface User {
@@ -128,6 +128,29 @@ export default function AdminUsersPage() {
             }
         } catch (err) {
             setError('Failed to update role');
+        }
+    };
+
+    const handleDeleteUser = async (userId: string, userEmail: string) => {
+        if (!confirm(`Are you sure you want to permanently delete ${userEmail}? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/admin/users?userId=${userId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                setSuccess(`User ${userEmail} deleted successfully`);
+                fetchUsers();
+                setTimeout(() => setSuccess(null), 3000);
+            } else {
+                const data = await response.json();
+                setError(data.error || 'Failed to delete user');
+            }
+        } catch (err) {
+            setError('Failed to delete user');
         }
     };
 
@@ -294,8 +317,8 @@ export default function AdminUsersPage() {
 
                                         <div className="flex items-center gap-3">
                                             <span className={`px-3 py-1 rounded-full text-sm font-medium ${user.role.toLowerCase() === 'manager' || user.role.toLowerCase() === 'admin'
-                                                    ? 'bg-purple-100 text-purple-700'
-                                                    : 'bg-gray-100 text-gray-700'
+                                                ? 'bg-purple-100 text-purple-700'
+                                                : 'bg-gray-100 text-gray-700'
                                                 }`}>
                                                 <Shield size={14} className="inline mr-1" />
                                                 {user.role}
@@ -306,6 +329,14 @@ export default function AdminUsersPage() {
                                                 className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
                                             >
                                                 Toggle Role
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleDeleteUser(user.id, user.email)}
+                                                className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                                                title="Delete user"
+                                            >
+                                                <Trash2 size={18} />
                                             </button>
                                         </div>
                                     </div>
