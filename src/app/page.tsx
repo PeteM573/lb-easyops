@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar, Plus, Trash2, X } from 'lucide-react';
+import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar, Plus, Trash2, X, TrendingUp, DollarSign, Package, Activity, ShoppingBag } from 'lucide-react';
+import { getDashboardMetrics, formatCurrency, formatPercentage, type DashboardMetrics } from '@/lib/analytics';
+import { getRecentActivity } from '@/lib/inventory-tracking';
 
 interface Task {
     id: number;
@@ -34,6 +36,8 @@ export default function Dashboard() {
     // Manager-only state
     const [userRole, setUserRole] = useState<string>('staff');
     const [upcomingDates, setUpcomingDates] = useState<UpcomingDate[]>([]);
+    const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+    const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
     // General Dates Management
     const [showGeneralDatesModal, setShowGeneralDatesModal] = useState(false);
@@ -73,14 +77,14 @@ export default function Dashboard() {
 
                 setTasks(data || []);
 
-                // Fetch Upcoming Dates (Manager Only)
-                // Case-insensitive check
-                if (role.toLowerCase() === 'manager' || role.toLowerCase() === 'admin') {
+                // Fetch Manager-Only Data
+                const isManager = role.toLowerCase() === 'manager' || role.toLowerCase() === 'admin';
+
+                if (isManager) {
+                    // Fetch Upcoming Dates
                     const today = new Date();
                     const nextWeek = new Date();
                     nextWeek.setDate(today.getDate() + 7);
-
-                    // Format dates as YYYY-MM-DD
                     const nextWeekStr = nextWeek.toISOString().split('T')[0];
 
                     // 1. Item Dates
@@ -109,9 +113,25 @@ export default function Dashboard() {
                         ...(itemDates || []).map(d => ({ ...d, type: 'item' })),
                         ...(generalDates || []).map(d => ({ ...d, type: 'general', items: null }))
                     ].sort((a: any, b: any) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime())
-                        .slice(0, 5); // Limit to top 5 overall
+                        .slice(0, 5);
 
                     setUpcomingDates(combined as any);
+
+                    // Fetch Dashboard Metrics
+                    try {
+                        const dashboardMetrics = await getDashboardMetrics(supabase);
+                        setMetrics(dashboardMetrics);
+                    } catch (error) {
+                        console.error('Error fetching dashboard metrics:', error);
+                    }
+
+                    // Fetch Recent Activity
+                    try {
+                        const activity = await getRecentActivity(supabase, 10);
+                        setRecentActivity(activity);
+                    } catch (error) {
+                        console.error('Error fetching recent activity:', error);
+                    }
                 }
             }
             setLoading(false);
@@ -170,7 +190,8 @@ export default function Dashboard() {
     };
 
     // Mock data for low stock (will be replaced with real data later)
-    const lowStockCount = 0;
+    const lowStockCount = metrics?.lowStockCount || 0;
+    const isManager = userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin';
 
     return (
         <div className="space-y-6">
@@ -181,7 +202,62 @@ export default function Dashboard() {
                 <p className="text-gray-500">Here is what is happening at Loud Baby today.</p>
             </section>
 
-            {/* 2. Critical Alerts (Only show if needed) */}
+            {/* 2. Manager-Only Metrics */}
+            {isManager && metrics && (
+                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Inventory Value */}
+                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                <Package size={20} />
+                            </div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Inventory Value</p>
+                        </div>
+                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.inventoryValue)}</p>
+                    </div>
+
+                    {/* Monthly COGS */}
+                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                                <TrendingUp size={20} />
+                            </div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monthly COGS</p>
+                        </div>
+                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.monthlyCOGS)}</p>
+                    </div>
+
+                    {/* Gross Profit */}
+                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                                <DollarSign size={20} />
+                            </div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gross Profit</p>
+                        </div>
+                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.monthlyGrossProfit)}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                            {metrics.monthlyRevenue > 0
+                                ? formatPercentage((metrics.monthlyGrossProfit / metrics.monthlyRevenue) * 100)
+                                : '0%'} margin
+                        </p>
+                    </div>
+
+                    {/* Sales Today */}
+                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                                <Activity size={20} />
+                            </div>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sales Today</p>
+                        </div>
+                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.salesToday.revenue)}</p>
+                        <p className="text-xs text-gray-500 mt-1">{metrics.salesToday.count} transaction{metrics.salesToday.count !== 1 ? 's' : ''}</p>
+                    </div>
+                </section>
+            )}
+
+            {/* 3. Critical Alerts (Only show if needed) */}
             {(lowStockCount > 0 || tasks.length > 0 || upcomingDates.length > 0) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {lowStockCount > 0 && (
@@ -256,6 +332,16 @@ export default function Dashboard() {
                         <span className="font-medium text-foreground">Log Usage</span>
                     </Link>
 
+                    {/* Manual Sale (Manager Only) */}
+                    {isManager && (
+                        <Link href="/inventory/sell" className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
+                            <div className="p-4 bg-green-100 text-green-600 rounded-full group-hover:scale-110 transition-transform">
+                                <ShoppingBag size={28} />
+                            </div>
+                            <span className="font-medium text-foreground">Record Sale</span>
+                        </Link>
+                    )}
+
                     {/* Scan Item */}
                     <Link href="/inventory/scan" className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3">
                         <div className="p-4 bg-secondary text-secondary-foreground rounded-full group-hover:scale-110 transition-transform">
@@ -275,7 +361,52 @@ export default function Dashboard() {
                 </div>
             </section>
 
-            {/* 4. Your Tasks Section */}
+            {/* 4. Recent Activity (Manager Only) */}
+            {isManager && recentActivity.length > 0 && (
+                <section className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-border">
+                        <h3 className="font-semibold">Recent Activity</h3>
+                    </div>
+                    <div className="divide-y divide-border max-h-80 overflow-y-auto">
+                        {recentActivity.map((activity: any) => {
+                            const changeTypeColors: Record<string, { bg: string; text: string; label: string }> = {
+                                RECEIVE: { bg: 'bg-green-100', text: 'text-green-700', label: 'Received' },
+                                CONSUME: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Consumed' },
+                                SALE: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Sold' },
+                                WASTE: { bg: 'bg-red-100', text: 'text-red-700', label: 'Wasted' },
+                                ADJUST: { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Adjusted' }
+                            };
+                            const colorInfo = changeTypeColors[activity.change_type] || changeTypeColors.ADJUST;
+
+                            return (
+                                <div key={activity.id} className="p-3 hover:bg-gray-50 transition-colors">
+                                    <div className="flex items-start gap-3">
+                                        <span className={`px-2 py-0.5 text-xs font-medium rounded ${colorInfo.bg} ${colorInfo.text}`}>
+                                            {colorInfo.label}
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-medium truncate">
+                                                {activity.items?.name || 'Unknown Item'}
+                                                <span className="text-gray-500 ml-2">
+                                                    {activity.quantity_change > 0 ? '+' : ''}{activity.quantity_change} {activity.items?.unit_of_measure || 'units'}
+                                                </span>
+                                            </p>
+                                            <p className="text-xs text-gray-500 mt-0.5">
+                                                {activity.profiles?.full_name || 'System'} • {new Date(activity.timestamp).toLocaleString()}
+                                            </p>
+                                            {activity.notes && (
+                                                <p className="text-xs text-gray-400 mt-1 truncate">{activity.notes}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
+            )}
+
+            {/* 5. Your Tasks Section */}
             <section className="bg-white rounded-xl border border-border shadow-sm overflow-hidden">
                 <div className="p-4 border-b border-border flex justify-between items-center">
                     <h3 className="font-semibold">My Tasks</h3>
