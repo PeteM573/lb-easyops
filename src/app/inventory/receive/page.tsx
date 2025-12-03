@@ -14,7 +14,7 @@ type Item = {
   stock_quantity: number;
   unit_of_measure: string;
   storage_location: string;
-  barcode_number?: string; // Updated to use barcode_number
+  barcode?: string;
   cost_per_unit?: number; // For audit logging
   image_url?: string; // Optional: in case you add images later
 };
@@ -174,8 +174,8 @@ export default function ReceiveStockPage() {
   const handleBarcodeScan = (barcode: string) => {
     setScanError('');
 
-    // Find item by barcode_number
-    const item = items.find((i) => i.barcode_number === barcode);
+    // Find item by barcode
+    const item = items.find((i) => i.barcode === barcode);
 
     if (item) {
       // Auto-select the item

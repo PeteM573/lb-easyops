@@ -21,7 +21,6 @@ export default function EditItemPage() {
     const [itemName, setItemName] = useState('');
     const [category, setCategory] = useState('Retail');
     const [barcode, setBarcode] = useState('');
-    const [barcodeNumber, setBarcodeNumber] = useState('');
     const [location, setLocation] = useState(''); // Legacy storage_location string
     const [uom, setUom] = useState('');
     const [cost, setCost] = useState<number | ''>('');
@@ -147,7 +146,6 @@ export default function EditItemPage() {
             setItemName(itemData.name || '');
             setCategory(itemData.category || 'Retail');
             setBarcode(itemData.barcode || '');
-            setBarcodeNumber(itemData.barcode_number || '');
             setIsAutoDeduct(itemData.is_auto_deduct || false);
             setLocation(itemData.storage_location || '');
             setUom(itemData.unit_of_measure || '');
@@ -169,8 +167,8 @@ export default function EditItemPage() {
         // 1. Calculate new total stock
         const totalStock = Object.values(stockMap).reduce((sum, qty) => sum + qty, 0);
 
-        // 1.5. Auto-generate barcode number if empty
-        const finalBarcodeNumber = barcodeNumber.trim() || generateBarcodeNumber();
+        // 1.5. Auto-generate barcode if empty
+        const finalBarcode = barcode.trim() || generateBarcodeNumber();
 
         // 2. Update Item Details
         const { error: updateError } = await supabase
@@ -183,8 +181,7 @@ export default function EditItemPage() {
                 unit_of_measure: uom,
                 cost_per_unit: cost === '' ? 0 : cost,
                 alert_threshold: threshold === '' ? 0 : threshold,
-                barcode: barcode || null,
-                barcode_number: finalBarcodeNumber,
+                barcode: finalBarcode,
                 is_auto_deduct: isAutoDeduct,
             })
             .eq('id', itemId);
@@ -242,7 +239,7 @@ export default function EditItemPage() {
         }
 
         setIsSubmitting(false);
-        setBarcodeNumber(finalBarcodeNumber); // Update state with auto-generated value
+        setBarcode(finalBarcode); // Update state with auto-generated value
         setSuccess(`Successfully updated "${itemName}"!`);
         setTimeout(() => {
             router.push('/inventory/report');
@@ -532,40 +529,40 @@ export default function EditItemPage() {
 
                             {/* Barcode Number Input */}
                             <div>
-                                <label htmlFor="barcodeNumber" className="block text-sm font-medium text-foreground mb-2">
-                                    Printable Barcode Number
+                                <label htmlFor="barcode" className="block text-sm font-medium text-foreground mb-2">
+                                    Barcode Number
                                     <span className="text-gray-400 text-xs font-normal ml-2">(Auto-generated if left blank)</span>
                                 </label>
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
-                                        id="barcodeNumber"
-                                        value={barcodeNumber}
-                                        onChange={(e) => setBarcodeNumber(e.target.value)}
+                                        id="barcode"
+                                        value={barcode}
+                                        onChange={(e) => setBarcode(e.target.value)}
                                         placeholder="Will auto-generate 10-digit number on save"
                                         className="flex-1 h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                                     />
                                     <button
                                         type="button"
-                                        onClick={() => setBarcodeNumber(generateBarcodeNumber())}
+                                        onClick={() => setBarcode(generateBarcodeNumber())}
                                         className="px-4 h-12 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
                                     >
                                         Generate New
                                     </button>
                                 </div>
                                 <p className="mt-1.5 text-xs text-gray-500">
-                                    This is separate from the scanned barcode. Used for printing labels.
+                                    For printing labels and scanning in your system
                                 </p>
                             </div>
 
                             {/* Barcode Display */}
-                            {barcodeNumber && (
+                            {barcode && (
                                 <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
                                     <div>
                                         <label className="block text-sm font-medium text-foreground mb-2">
                                             Preview
                                         </label>
-                                        <BarcodeGenerator value={barcodeNumber} />
+                                        <BarcodeGenerator value={barcode} />
                                     </div>
 
                                     {/* Print Button */}
@@ -574,7 +571,7 @@ export default function EditItemPage() {
                                             Print Labels
                                         </label>
                                         <BarcodePrintButton
-                                            barcodeValue={barcodeNumber}
+                                            barcodeValue={barcode}
                                             itemName={itemName || 'Item'}
                                         />
                                     </div>

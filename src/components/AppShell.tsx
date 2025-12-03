@@ -38,9 +38,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <Image
             src="/LB_LOGO_multi.png"
             alt="Loud Baby"
-            width={180}
-            height={60}
-            className="w-auto h-12"
+            width={240}
+            height={80}
+            className="w-auto h-16"
             priority
           />
           <p className="text-xs text-muted-foreground mt-2">Easy Ops</p>

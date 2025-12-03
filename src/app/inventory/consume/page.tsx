@@ -14,7 +14,7 @@ interface Item {
     stock_quantity: number;
     unit: string;
     storage_location: string | null;
-    barcode_number: string | null;
+    barcode: string | null;
     cost_per_unit?: number; // For audit logging
 }
 
@@ -201,8 +201,8 @@ export default function ConsumeStockPage() {
     const handleBarcodeScan = (barcode: string) => {
         setScanError('');
 
-        // Find item by barcode_number
-        const item = items.find((i) => i.barcode_number === barcode);
+        // Find item by barcode
+        const item = items.find((i) => i.barcode === barcode);
 
         if (item) {
             // Auto-select the item

@@ -76,11 +76,11 @@ export async function POST(req: NextRequest) {
                 continue;
             }
 
-            // Query items table for matching barcode_number with auto_deduct flag
+            // Query items table for matching barcode with auto_deduct flag
             const { data: items, error: itemError } = await supabaseAdmin
                 .from('items')
-                .select('id, name, barcode_number, is_auto_deduct, stock_quantity, cost_per_unit')
-                .eq('barcode_number', variationId)
+                .select('id, name, barcode, is_auto_deduct, stock_quantity, cost_per_unit')
+                .eq('barcode', variationId)
                 .eq('is_auto_deduct', true);
 
             if (itemError) {

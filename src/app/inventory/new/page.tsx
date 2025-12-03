@@ -71,10 +71,10 @@ export default function NewItemPage() {
 
   useEffect(() => {
     const fetchLocations = async () => {
-      // Check if barcode_number was passed from scan page
-      const barcodeNumberParam = searchParams.get('barcode_number');
-      if (barcodeNumberParam) {
-        setBarcodeNumber(barcodeNumberParam);
+      // Check if barcode was passed from scan page
+      const barcodeParam = searchParams.get('barcode');
+      if (barcodeParam) {
+        setBarcodeNumber(barcodeParam);
       }
 
       const { data, error } = await supabase
@@ -123,8 +123,7 @@ export default function NewItemPage() {
         unit_of_measure: uom,
         cost_per_unit: cost === '' ? 0 : cost,
         alert_threshold: threshold === '' ? 0 : threshold,
-        barcode: barcode || null,
-        barcode_number: finalBarcodeNumber,
+        barcode: finalBarcodeNumber,
         is_auto_deduct: isAutoDeduct,
       })
       .select()
