@@ -104,7 +104,7 @@ export default function NewItemPage() {
       // Check if barcode was passed from scan page
       const barcodeParam = searchParams.get('barcode');
       if (barcodeParam) {
-        setBarcodeNumber(barcodeParam);
+        handleBarcodeChange(barcodeParam); // Use handler to trigger auto-categorization
       }
 
       const { data, error } = await supabase
