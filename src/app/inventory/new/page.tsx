@@ -44,6 +44,36 @@ export default function NewItemPage() {
     return randomNumber.toString();
   };
 
+  // Helper function to determine category from barcode prefix
+  const getCategoryFromBarcode = (barcodeValue: string): string | null => {
+    const prefix = barcodeValue.substring(0, 3).toUpperCase();
+    switch (prefix) {
+      case 'LBC':
+        return 'Consumables';
+      case 'LBR':
+        return 'Retail';
+      case 'LBM':
+        return 'Raw Materials';
+      case 'LBA':
+        return 'Accessories';
+      default:
+        return null; // No auto-categorization
+    }
+  };
+
+  // Handler for barcode changes with auto-categorization
+  const handleBarcodeChange = (value: string) => {
+    setBarcodeNumber(value);
+
+    // Auto-populate category if barcode has valid prefix
+    if (value.length >= 3) {
+      const autoCategory = getCategoryFromBarcode(value);
+      if (autoCategory) {
+        setCategory(autoCategory);
+      }
+    }
+  };
+
   // Helper function to convert to smart title case
   // Preserves single letters (S, M, L) and handles abbreviations (H&S)
   const toTitleCase = (str: string) => {
@@ -304,7 +334,7 @@ export default function NewItemPage() {
               {/* Barcode Number Input */}
               <div>
                 <label htmlFor="barcodeNumber" className="block text-sm font-medium text-foreground mb-2">
-                  Printable Barcode Number
+                  Barcode Number
                   <span className="text-gray-400 text-xs font-normal ml-2">(Auto-generated if left blank)</span>
                 </label>
                 <div className="flex gap-2">
@@ -312,7 +342,7 @@ export default function NewItemPage() {
                     type="text"
                     id="barcodeNumber"
                     value={barcodeNumber}
-                    onChange={(e) => setBarcodeNumber(e.target.value)}
+                    onChange={(e) => handleBarcodeChange(e.target.value)}
                     placeholder="Will auto-generate 10-digit number on save"
                     className="flex-1 h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                   />
@@ -325,7 +355,7 @@ export default function NewItemPage() {
                   </button>
                 </div>
                 <p className="mt-1.5 text-xs text-gray-500">
-                  This is separate from the scanned barcode. Used for printing labels.
+                  💡 <strong>Tip:</strong> Start with LBR (Retail), LBC (Consumables), LBM (Raw Materials), or LBA (Accessories) to auto-set category
                 </p>
               </div>
 
