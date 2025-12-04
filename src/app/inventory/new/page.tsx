@@ -70,6 +70,13 @@ export default function NewItemPage() {
       const autoCategory = getCategoryFromBarcode(value);
       if (autoCategory) {
         setCategory(autoCategory);
+
+        // Auto-enable auto-deduct for Retail and Accessories
+        if (autoCategory === 'Retail' || autoCategory === 'Accessories') {
+          setIsAutoDeduct(true);
+        } else {
+          setIsAutoDeduct(false);
+        }
       }
     }
   };
@@ -132,12 +139,6 @@ export default function NewItemPage() {
     setIsSubmitting(true);
     setError(null);
     setSuccess(null);
-
-    if (quantity !== '' && quantity > 0 && selectedLocationId === '') {
-      setError('Please select a location for the initial stock.');
-      setIsSubmitting(false);
-      return;
-    }
 
     // 0.5. Auto-generate barcode number if empty
     const finalBarcodeNumber = barcodeNumber.trim() || generateBarcodeNumber();
@@ -302,10 +303,35 @@ export default function NewItemPage() {
                 </p>
               </div>
 
-              {/* Storage Location (Legacy) */}
+
+              {/* Primary Location */}
               <div>
-                <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                <label htmlFor="primaryLocation" className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                   <MapPin size={16} className="text-gray-400" />
+                  Primary Location <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="primaryLocation"
+                  value={selectedLocationId}
+                  onChange={(e) => setSelectedLocationId(Number(e.target.value))}
+                  required
+                  className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
+                >
+                  <option value="" disabled>Select a location</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>
+                      {loc.name} {loc.is_default ? '(Default)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1.5 text-xs text-gray-500">
+                  💡 Main storage area (e.g., Main Floor, Upstairs, Clubhouse)
+                </p>
+              </div>
+
+              {/* Shelf/Bin Label (Secondary) */}
+              <div>
+                <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2">
                   Shelf/Bin Label <span className="text-gray-400 text-xs font-normal">(Optional)</span>
                 </label>
                 <input
@@ -313,9 +339,12 @@ export default function NewItemPage() {
                   id="location"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g., Shelf A3"
+                  placeholder="e.g., Shelf A3, Bin 12"
                   className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                 />
+                <p className="mt-1.5 text-xs text-gray-500">
+                  Specific shelf or bin within the primary location
+                </p>
               </div>
 
             </div>
@@ -434,33 +463,9 @@ export default function NewItemPage() {
                     value={uom}
                     onChange={(e) => setUom(e.target.value)}
                     required
-                    className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                   />
                 </div>
               </div>
-
-              {/* Initial Location Selection */}
-              {quantity !== '' && quantity > 0 && (
-                <div className="animate-in fade-in slide-in-from-top-2">
-                  <label htmlFor="initialLocation" className="block text-sm font-medium text-foreground mb-2">
-                    Assign Initial Stock To <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    id="initialLocation"
-                    value={selectedLocationId}
-                    onChange={(e) => setSelectedLocationId(Number(e.target.value))}
-                    required
-                    className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
-                  >
-                    <option value="" disabled>Select a location</option>
-                    {locations.map(loc => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.name} {loc.is_default ? '(Default)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
               <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg p-3 flex items-start gap-2">
                 <AlertCircle size={16} className="shrink-0 mt-0.5" />

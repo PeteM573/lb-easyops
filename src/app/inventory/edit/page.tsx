@@ -74,6 +74,13 @@ export default function EditItemPage() {
             const autoCategory = getCategoryFromBarcode(value);
             if (autoCategory) {
                 setCategory(autoCategory);
+
+                // Auto-enable auto-deduct for Retail and Accessories
+                if (autoCategory === 'Retail' || autoCategory === 'Accessories') {
+                    setIsAutoDeduct(true);
+                } else {
+                    setIsAutoDeduct(false);
+                }
             }
         }
     };
@@ -425,10 +432,9 @@ export default function EditItemPage() {
                                 </select>
                             </div>
 
-                            {/* Storage Location (Legacy/Display) */}
+                            {/* Shelf/Bin Label */}
                             <div>
-                                <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
-                                    <MapPin size={16} className="text-gray-400" />
+                                <label htmlFor="location" className="block text-sm font-medium text-foreground mb-2">
                                     Shelf/Bin Label <span className="text-gray-400 text-xs font-normal">(Optional)</span>
                                 </label>
                                 <input
@@ -436,9 +442,12 @@ export default function EditItemPage() {
                                     id="location"
                                     value={location}
                                     onChange={(e) => setLocation(e.target.value)}
-                                    placeholder="e.g., Shelf A3"
+                                    placeholder="e.g., Shelf A3, Bin 12"
                                     className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                                 />
+                                <p className="mt-1.5 text-xs text-gray-500">
+                                    Specific shelf or bin within your storage locations
+                                </p>
                             </div>
 
                         </div>
