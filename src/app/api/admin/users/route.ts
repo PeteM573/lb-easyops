@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
 
 // PATCH: Update user role
 export async function PATCH(req: NextRequest) {
-    const { authorized } = await verifyManagerRole(req);
+    const { authorized, user } = await verifyManagerRole(req);
 
     if (!authorized) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -197,6 +197,11 @@ export async function PATCH(req: NextRequest) {
 
         if (role !== 'employee' && role !== 'manager' && role !== 'admin') {
             return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+        }
+
+        // Security: Prevent users from modifying their own role
+        if (userId === user?.id) {
+            return NextResponse.json({ error: 'Cannot modify your own role' }, { status: 400 });
         }
 
         // Update profile role
@@ -219,7 +224,7 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE: Remove user
 export async function DELETE(req: NextRequest) {
-    const { authorized } = await verifyManagerRole(req);
+    const { authorized, user } = await verifyManagerRole(req);
 
     if (!authorized) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -231,6 +236,33 @@ export async function DELETE(req: NextRequest) {
 
         if (!userId) {
             return NextResponse.json({ error: 'userId required' }, { status: 400 });
+        }
+
+        // Security: Prevent users from deleting themselves
+        if (userId === user?.id) {
+            return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 });
+        }
+
+        // Security: Prevent deleting the last admin
+        // First check if this user is an admin
+        const { data: targetProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('role')
+            .eq('id', userId)
+            .single();
+
+        if (targetProfile?.role?.toLowerCase() === 'admin') {
+            // Count total admins
+            const { count } = await supabaseAdmin
+                .from('profiles')
+                .select('*', { count: 'exact', head: true })
+                .ilike('role', 'admin');
+
+            if (count && count <= 1) {
+                return NextResponse.json({
+                    error: 'Cannot delete the last admin account'
+                }, { status: 400 });
+            }
         }
 
         // Delete from profiles table first

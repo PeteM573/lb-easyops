@@ -66,6 +66,27 @@ export async function POST(req: NextRequest) {
 
         console.log('Processing Square order:', order.id);
 
+        // Idempotency: Check if we've already processed this order
+        const { data: existingEvent } = await supabaseAdmin
+            .from('webhook_events')
+            .select('id')
+            .eq('event_id', order.id)
+            .single();
+
+        if (existingEvent) {
+            console.log('Order already processed, skipping:', order.id);
+            return NextResponse.json({ message: 'Order already processed' }, { status: 200 });
+        }
+
+        // Record this webhook event for idempotency
+        await supabaseAdmin
+            .from('webhook_events')
+            .insert({
+                event_id: order.id,
+                event_type: body.type,
+                payload: body
+            });
+
         // Process each line item
         for (const lineItem of order.line_items) {
             // Get variation_id (this is the SKU/barcode from Square)

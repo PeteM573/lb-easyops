@@ -11,8 +11,22 @@ const supabaseAdmin = createClient(
 
 export const dynamic = 'force-dynamic'; // Ensure this doesn't get statically cached
 
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        // Security: Verify Vercel Cron Secret to prevent unauthorized access
+        const authHeader = req.headers.get('authorization');
+        const cronSecret = process.env.CRON_SECRET;
+
+        if (!cronSecret) {
+            console.error('CRON_SECRET not configured');
+            return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+        }
+
+        if (authHeader !== `Bearer ${cronSecret}`) {
+            console.warn('Unauthorized attempt to trigger reminders');
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         console.log('📅 Checking for upcoming reminders...');
 
         // 1. Calculate date range (Today to 7 days from now)
