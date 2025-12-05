@@ -303,17 +303,7 @@ export default function Dashboard() {
 
             {/* 3. Quick Actions - The "Buffet" */}
             <section>
-                <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-semibold">Quick Actions</h3>
-                    {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
-                        <button
-                            onClick={openGeneralDatesModal}
-                            className="text-xs text-primary hover:underline flex items-center gap-1"
-                        >
-                            <Calendar size={14} /> Manage General Dates
-                        </button>
-                    )}
-                </div>
+                <h3 className="text-lg font-semibold mb-3">Quick Actions</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 
                     {/* Receive Stock */}
@@ -357,6 +347,19 @@ export default function Dashboard() {
                         </div>
                         <span className="font-medium text-foreground">New Item</span>
                     </Link>
+
+                    {/* Compliance Reminders (Manager Only) */}
+                    {isManager && (
+                        <button
+                            onClick={openGeneralDatesModal}
+                            className="group bg-white p-6 rounded-xl border border-border shadow-sm hover:shadow-md transition-all flex flex-col items-center text-center gap-3"
+                        >
+                            <div className="p-4 bg-blue-100 text-blue-600 rounded-full group-hover:scale-110 transition-transform">
+                                <Calendar size={28} />
+                            </div>
+                            <span className="font-medium text-foreground">Set Compliance Reminders</span>
+                        </button>
+                    )}
 
                 </div>
             </section>
