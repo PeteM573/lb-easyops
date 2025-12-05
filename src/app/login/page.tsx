@@ -21,7 +21,7 @@ export default function LoginPage() {
     setIsLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email: email,
       password: password,
     });
@@ -30,10 +30,21 @@ export default function LoginPage() {
 
     if (error) {
       setError(error.message);
-    } else {
-      // THE FIX: Use router.refresh() to ensure the server re-evaluates the user's
-      // session from the new cookie and correctly renders the layout.
-      router.refresh();
+    } else if (data.user) {
+      // Check if user needs to change password
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('force_password_change')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profile?.force_password_change) {
+        // Redirect to password change page
+        router.push('/change-password');
+      } else {
+        // Normal login flow
+        router.refresh();
+      }
     }
   };
 
@@ -44,7 +55,7 @@ export default function LoginPage() {
           <h1 className="text-3xl font-bold text-gray-800">Loud Baby Easy Ops</h1>
           <p className="text-gray-500">Please sign in to continue</p>
         </div>
-        
+
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
@@ -77,9 +88,9 @@ export default function LoginPage() {
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           {error && (
-              <p className="text-red-500 text-sm text-center">{error}</p>
+            <p className="text-red-500 text-sm text-center">{error}</p>
           )}
 
           <div>

@@ -143,7 +143,8 @@ export async function POST(req: NextRequest) {
             .from('profiles')
             .upsert({
                 id: authData.user.id,
-                role: 'employee' // Default role
+                role: 'employee', // Default role
+                force_password_change: true // Require password change on first login
             }, {
                 onConflict: 'id'
             });
