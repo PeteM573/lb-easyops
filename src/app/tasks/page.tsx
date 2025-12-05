@@ -13,7 +13,8 @@ interface Task {
   description: string | null;
   is_complete: boolean;
   assigned_to: string | null;
-  profiles: { full_name: string }[] | null;
+  completed_at: string | null;
+  profiles: { full_name: string } | null; // Supabase returns single object for FK
 }
 
 interface Profile {
@@ -60,6 +61,11 @@ export default function TasksPage() {
       else setUserProfile(profileData);
     }
 
+    // Get today's date at start of day (00:00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayISO = today.toISOString();
+
     const { data: taskData, error: taskError } = await supabase
       .from('tasks')
       .select(`
@@ -68,6 +74,7 @@ export default function TasksPage() {
         description,
         is_complete,
         assigned_to,
+        completed_at,
         profiles:assigned_to ( full_name )
       `)
       .order('created_at', { ascending: false });
@@ -78,9 +85,11 @@ export default function TasksPage() {
 
     if (taskError || profilesError) {
       setError('Failed to fetch data.');
-      console.error(taskError || profilesError);
+      console.log(taskError || profilesError);
     } else {
-      setTasks(taskData || []);
+      console.log('Raw task data from Supabase:', taskData);
+      console.log('First task profiles:', taskData?.[0]?.profiles);
+      setTasks((taskData as unknown as Task[]) || []);
       setProfiles(profilesData || []);
     }
     setIsLoading(false);
@@ -151,7 +160,14 @@ export default function TasksPage() {
   }
 
   const incompleteTasks = tasks.filter(t => !t.is_complete);
-  const completedTasks = tasks.filter(t => t.is_complete);
+  // Filter completed tasks to only show those completed today (last 24 hours)
+  const completedTasks = tasks.filter(t => {
+    if (!t.is_complete) return false;
+    if (!t.completed_at) return true; // Show old completed tasks without timestamp
+    const completedDate = new Date(t.completed_at);
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    return completedDate >= twentyFourHoursAgo;
+  });
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -221,7 +237,7 @@ export default function TasksPage() {
                           )}
                           <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
                             <User size={12} />
-                            <span>{task.profiles?.[0]?.full_name || 'Unassigned'}</span>
+                            <span>{task.profiles?.full_name || 'Unassigned'}</span>
                           </div>
                         </div>
                       </div>
@@ -237,7 +253,7 @@ export default function TasksPage() {
                 <div className="bg-gray-50 px-6 py-3 border-b border-border flex items-center justify-between">
                   <h2 className="font-semibold text-foreground flex items-center gap-2">
                     <CheckCircle2 size={18} className="text-green-600" />
-                    Completed
+                    Completed Today
                   </h2>
                   <span className="text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-medium">
                     {completedTasks.length}
@@ -263,7 +279,7 @@ export default function TasksPage() {
                           )}
                           <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
                             <User size={12} />
-                            <span>{task.profiles?.[0]?.full_name || 'Unassigned'}</span>
+                            <span>{task.profiles?.full_name || 'Unassigned'}</span>
                           </div>
                         </div>
                       </div>

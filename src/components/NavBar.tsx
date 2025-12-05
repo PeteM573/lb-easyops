@@ -13,12 +13,15 @@ export default function NavBar() {
   );
   const router = useRouter();
   const [userRole, setUserRole] = useState<string>('');
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Get user role
+  // Get user role and set up realtime subscription
   useEffect(() => {
     const fetchRole = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        setUserId(user.id);
+
         const { data: profile } = await supabase
           .from('profiles')
           .select('role')
@@ -32,6 +35,32 @@ export default function NavBar() {
     };
     fetchRole();
   }, [supabase]);
+
+  // Subscribe to role changes
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('profile-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`
+        },
+        (payload) => {
+          console.log('Role updated:', payload.new);
+          setUserRole(payload.new.role || '');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();

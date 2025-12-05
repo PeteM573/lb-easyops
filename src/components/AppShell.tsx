@@ -4,8 +4,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, ScanBarcode, ClipboardList, Menu, LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, Package, ScanBarcode, ClipboardList, Menu, LogOut, Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
@@ -17,11 +17,35 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  const [userRole, setUserRole] = useState<string>('staff');
+
+  // Fetch user role on mount
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setUserRole(profile?.role || 'staff');
+      }
+    };
+    fetchUserRole();
+  }, [supabase]);
+
+  const isManager = userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin';
+
   const navItems = [
     { name: 'Overview', href: '/', icon: LayoutDashboard },
     { name: 'Inventory', href: '/inventory/report', icon: Package },
     { name: 'Scan', href: '/inventory/scan', icon: ScanBarcode },
     { name: 'Tasks', href: '/tasks', icon: ClipboardList },
+  ];
+
+  const managerNavItems = [
+    { name: 'User Management', href: '/admin/users', icon: Users },
   ];
 
   const handleLogout = async () => {
@@ -34,13 +58,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex flex-col md:flex-row">
       {/* --- Desktop Sidebar --- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-border h-screen sticky top-0">
-        <div className="p-6 border-b border-border">
+        <div className="p-6 border-b border-border flex flex-col items-center">
           <Image
-            src="/LB_LOGO_multi.png"
+            src="/LB_LOGO_whitespace.png"
             alt="Loud Baby"
-            width={240}
-            height={80}
-            className="w-auto h-16"
+            width={320}
+            height={106}
+            className="w-auto h-20"
             priority
           />
           <p className="text-xs text-muted-foreground mt-2">Easy Ops</p>
@@ -63,6 +87,32 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             );
           })}
+
+          {/* Manager-only navigation items */}
+          {isManager && (
+            <>
+              <div className="pt-2 mt-2 border-t border-border">
+                <p className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin</p>
+              </div>
+              {managerNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                      ? 'bg-primary/10 text-primary font-medium'
+                      : 'text-gray-600 hover:bg-gray-50'
+                      }`}
+                  >
+                    <Icon size={20} />
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
         <div className="p-4 border-t border-border">
           <button
@@ -78,7 +128,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* --- Mobile Header --- */}
       <header className="md:hidden h-16 bg-white border-b border-border flex items-center justify-between px-4 sticky top-0 z-10">
         <Image
-          src="/LB_LOGO_multi.png"
+          src="/LB_LOGO_whitespace.png"
           alt="Loud Baby"
           width={120}
           height={40}
