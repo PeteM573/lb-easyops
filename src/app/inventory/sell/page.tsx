@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Search, X, Check, DollarSign, AlertTriangle, Camera, ShoppingBag } from 'lucide-react';
+import { Search, X, Check, DollarSign, Package, AlertTriangle, ShoppingBag, Camera } from 'lucide-react';
 import Link from 'next/link';
+import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import { processSale, type SaleEntry } from '@/lib/inventory-tracking';
 
@@ -210,7 +211,7 @@ export default function ManualSalePage() {
                                             ? 'bg-red-100 text-red-700'
                                             : 'bg-green-100 text-green-700'
                                             }`}>
-                                            {item.stock_quantity} {item.unit_of_measure}
+                                            {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
                                         </span>
                                     </div>
 
@@ -277,7 +278,7 @@ export default function ManualSalePage() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-foreground">{selectedItem.name}</h2>
-                                    <p className="text-sm text-gray-600">Available: {selectedItem.stock_quantity} {selectedItem.unit_of_measure}</p>
+                                    <p className="text-sm text-gray-600">Available: {formatQuantityWithUnit(selectedItem.stock_quantity, selectedItem.unit_of_measure)}</p>
                                 </div>
                             </div>
                             <button onClick={handleCloseModal} className="absolute top-4 right-4 p-2 hover:bg-white/50 rounded-lg transition-colors text-gray-600 hover:text-foreground">

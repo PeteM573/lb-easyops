@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import Link from 'next/link';
+import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 
 type ItemLocation = {
   location_name: string;
@@ -234,8 +235,9 @@ export default function InventoryReportPage() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-primary">{item.stock_quantity}</p>
-                    <p className="text-xs text-gray-500">{item.unit_of_measure}</p>
+                    <p className="text-lg font-bold text-primary">
+                      {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -279,7 +281,7 @@ export default function InventoryReportPage() {
                     </td>
                     <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
                     <td className="px-6 py-4 text-right font-bold text-foreground">
-                      {item.stock_quantity} <span className="text-gray-400 font-normal text-xs">{item.unit_of_measure}</span>
+                      {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
                     </td>
                     <td className="px-6 py-4">
                       {getStockStatus(item)}

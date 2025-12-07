@@ -466,17 +466,20 @@ export default function EditItemPage() {
                             {/* Unit of Measure */}
                             <div>
                                 <label htmlFor="uom" className="block text-sm font-medium text-foreground mb-2">
-                                    Unit of Measure <span className="text-red-500">*</span>
+                                    Unit of Measure (Singular) <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     id="uom"
-                                    placeholder="e.g., lbs, oz, gallons, units"
+                                    placeholder="e.g., lb, oz, gallon, unit, lid, box"
                                     value={uom}
                                     onChange={(e) => setUom(e.target.value)}
                                     required
                                     className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
                                 />
+                                <p className="mt-1.5 text-xs text-gray-500">
+                                    💡 Use singular form (lid, not lids). Will pluralize automatically.
+                                </p>
                             </div>
 
                             {/* Stock per Location */}

@@ -4,7 +4,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Package, ScanBarcode, ClipboardList, Menu, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, Package, ScanBarcode, ClipboardList, Menu, LogOut, Users, PackagePlus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
@@ -39,6 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const navItems = [
     { name: 'Overview', href: '/', icon: LayoutDashboard },
+    { name: 'Receive', href: '/inventory/receive', icon: PackagePlus },
     { name: 'Inventory', href: '/inventory/report', icon: Package },
     { name: 'Scan', href: '/inventory/scan', icon: ScanBarcode },
     { name: 'Tasks', href: '/tasks', icon: ClipboardList },
@@ -149,7 +150,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* --- Mobile Bottom Navigation --- */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border h-20 z-20 pb-safe">
-        <div className="grid grid-cols-4 h-full">
+        <div className="grid grid-cols-5 h-full">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;

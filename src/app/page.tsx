@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar, Plus, Trash2, X, TrendingUp, DollarSign, Package, Activity, ShoppingBag } from 'lucide-react';
 import { getDashboardMetrics, formatCurrency, formatPercentage, type DashboardMetrics } from '@/lib/analytics';
 import { getRecentActivity } from '@/lib/inventory-tracking';
+import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 
 interface Task {
     id: number;
@@ -391,7 +392,7 @@ export default function Dashboard() {
                                             <p className="text-sm font-medium truncate">
                                                 {activity.items?.name || 'Unknown Item'}
                                                 <span className="text-gray-500 ml-2">
-                                                    {activity.quantity_change > 0 ? '+' : ''}{activity.quantity_change} {activity.items?.unit_of_measure || 'units'}
+                                                    {activity.quantity_change > 0 ? '+' : ''}{formatQuantityWithUnit(Math.abs(activity.quantity_change), activity.items?.unit_of_measure || 'unit')}
                                                 </span>
                                             </p>
                                             <p className="text-xs text-gray-500 mt-0.5">

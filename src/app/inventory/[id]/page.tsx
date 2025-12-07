@@ -1,6 +1,8 @@
 // src/app/inventory/[id]/page.tsx
 import { supabase } from '@/lib/supabaseClient';
+import { ArrowLeft, Package } from 'lucide-react';
 import Link from 'next/link';
+import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 
 interface PageProps {
   // The shape of params is now a Promise that resolves to an object
@@ -61,7 +63,7 @@ export default async function ItemDetailPage({ params }: PageProps) {
             <div className="p-4 bg-gray-100 rounded-lg">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Current Stock</h2>
               <p className="text-2xl font-bold text-gray-800">
-                {item.stock_quantity} <span className="text-lg font-normal text-gray-600">{item.unit_of_measure}</span>
+                {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
               </p>
             </div>
             <div className="p-4 bg-gray-100 rounded-lg">
@@ -73,13 +75,13 @@ export default async function ItemDetailPage({ params }: PageProps) {
             <div className="p-4 bg-gray-100 rounded-lg">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Alert Threshold</h2>
               <p className="text-2xl font-bold text-gray-800">
-                {item.alert_threshold ? `${item.alert_threshold} ${item.unit_of_measure}` : 'Not set'}
+                {item.alert_threshold ? formatQuantityWithUnit(item.alert_threshold, item.unit_of_measure) : 'Not set'}
               </p>
             </div>
             {/* Barcode */}
             <div className="p-4 bg-gray-100 rounded-lg sm:col-span-2">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Barcode / SKU</h2>
-            <p className="text-2xl font-bold text-gray-800 font-mono tracking-widest">{item.barcode || 'Not set'}</p>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Barcode / SKU</h2>
+              <p className="text-2xl font-bold text-gray-800 font-mono tracking-widest">{item.barcode || 'Not set'}</p>
             </div>
           </div>
         </div>

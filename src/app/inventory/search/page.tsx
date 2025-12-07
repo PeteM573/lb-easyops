@@ -1,5 +1,7 @@
 // src/app/inventory/search/page.tsx
 import { supabase } from '@/lib/supabaseClient';
+import { useRouter } from 'next/navigation';
+import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 import Link from 'next/link';
 
 // Define the shape of the Item object for type safety
@@ -23,9 +25,9 @@ export default async function SearchResultsPage({ searchParams }: SearchPageProp
   // Await the searchParams promise to get the resolved object
   const resolvedSearchParams = await searchParams;
   const query = resolvedSearchParams.q || '';
-  
+
   let items: Item[] = [];
-  
+
   if (query) {
     const { data } = await supabase
       .from('items')
@@ -45,13 +47,13 @@ export default async function SearchResultsPage({ searchParams }: SearchPageProp
           <ul className="divide-y divide-gray-200">
             {items.map((item: Item) => (
               <li key={item.id} className="py-4">
-                <Link 
+                <Link
                   href={`/inventory/${item.id}`}
                   className="block hover:bg-gray-50 p-2 rounded-md"
                 >
                   <p className="font-semibold text-lg text-blue-600">{item.name}</p>
                   <p className="text-sm text-gray-600">Location: {item.storage_location}</p>
-                  <p className="text-sm text-gray-600">Stock: {item.stock_quantity} {item.unit_of_measure}</p>
+                  <p className="text-sm text-gray-600">Stock: {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}</p>
                 </Link>
               </li>
             ))}
