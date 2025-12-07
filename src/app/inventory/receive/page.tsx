@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { Search, X, Check, PackageOpen, AlertTriangle, Camera } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import BarcodeScanner from '@/components/BarcodeScanner';
 
 // Define the shape of our inventory item
@@ -24,6 +25,7 @@ export default function ReceiveStockPage() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
+  const router = useRouter();
 
   // --- State ---
   const [items, setItems] = useState<Item[]>([]);
@@ -183,9 +185,9 @@ export default function ReceiveStockPage() {
       setReceiveQty(''); // Reset quantity
       setScannerOpen(false);
     } else {
-      // Show error
-      setScanError(`No item found with barcode: ${barcode}`);
-      // Keep scanner open for retry
+      // Item not found - redirect to new item workflow with barcode
+      setScannerOpen(false);
+      router.push(`/inventory/new?barcode=${encodeURIComponent(barcode)}`);
     }
   };
 

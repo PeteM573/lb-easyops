@@ -77,6 +77,8 @@ export default function NavBar() {
             <Link href="/" className="text-2xl font-bold text-gray-800">Loud Baby</Link>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
+                {/* Receive Stock */}
+                <Link href="/inventory/receive" className="text-green-600 hover:text-green-700 px-3 py-2 rounded-md text-sm font-medium">Receive Stock</Link>
                 {/* Add a link to the new Tasks page */}
                 <Link href="/tasks" className="text-gray-500 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium">Tasks</Link>
                 {/* Add a link to the new Report page */}
