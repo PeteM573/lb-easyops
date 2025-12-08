@@ -27,6 +27,10 @@ export default function EditItemPage() {
     const [threshold, setThreshold] = useState<number | ''>('');
     const [isAutoDeduct, setIsAutoDeduct] = useState(false);
 
+    // Vendor Comparison State
+    const [comparisonPrice, setComparisonPrice] = useState<number | ''>('');
+    const [comparisonVendor, setComparisonVendor] = useState('');
+
     // Multi-location state
     const [locations, setLocations] = useState<{ id: number; name: string }[]>([]);
     const [stockMap, setStockMap] = useState<Record<number, number>>({});
@@ -188,6 +192,8 @@ export default function EditItemPage() {
             setUom(itemData.unit_of_measure || '');
             setCost(itemData.cost_per_unit ?? '');
             setThreshold(itemData.alert_threshold ?? '');
+            setComparisonPrice(itemData.comparison_price ?? '');
+            setComparisonVendor(itemData.comparison_vendor || '');
 
             setIsLoading(false);
         };
@@ -220,6 +226,8 @@ export default function EditItemPage() {
                 alert_threshold: threshold === '' ? 0 : threshold,
                 barcode: finalBarcode,
                 is_auto_deduct: isAutoDeduct,
+                comparison_price: comparisonPrice === '' ? null : comparisonPrice,
+                comparison_vendor: comparisonVendor || null,
             })
             .eq('id', itemId);
 
@@ -555,6 +563,51 @@ export default function EditItemPage() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Vendor Comparison (Manager Only) */}
+                            {userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin' ? (
+                                <div className="border-t border-gray-200 pt-6 mt-6">
+                                    <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                                        <DollarSign size={16} className="text-gray-400" />
+                                        Vendor Comparison (Optional)
+                                    </h3>
+                                    <p className="text-xs text-gray-500 mb-4">Compare alternative suppliers to identify cost savings opportunities.</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label htmlFor="comparisonVendor" className="block text-sm font-medium text-foreground mb-2">
+                                                Alternative Supplier Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                id="comparisonVendor"
+                                                value={comparisonVendor}
+                                                onChange={(e) => setComparisonVendor(e.target.value)}
+                                                placeholder="e.g., Vendor B"
+                                                className="block w-full h-12 px-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label htmlFor="comparisonPrice" className="block text-sm font-medium text-foreground mb-2">
+                                                Alternative Price (per unit)
+                                            </label>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    id="comparisonPrice"
+                                                    value={comparisonPrice}
+                                                    onChange={(e) => setComparisonPrice(e.target.value ? parseFloat(e.target.value) : '')}
+                                                    min="0"
+                                                    inputMode="decimal"
+                                                    placeholder="0.00"
+                                                    className="block w-full h-12 pl-8 pr-4 rounded-xl border border-input bg-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-base"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
 
                         </div>
                     </div>

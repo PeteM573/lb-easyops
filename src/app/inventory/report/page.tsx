@@ -21,6 +21,8 @@ type Item = {
   alert_threshold: number | null;
   storage_location: string | null;
   location_breakdown?: ItemLocation[];
+  comparison_price: number | null;
+  comparison_vendor: string | null;
 };
 
 export default function InventoryReportPage() {
@@ -158,6 +160,36 @@ export default function InventoryReportPage() {
     );
   };
 
+  // --- Helper for Savings Calculation ---
+  const calculateSavings = (costPerUnit: number, comparisonPrice: number) => {
+    return costPerUnit - comparisonPrice;
+  };
+
+  const renderSavingsCell = (item: Item) => {
+    if (item.comparison_price) {
+      const savings = calculateSavings(item.cost_per_unit, item.comparison_price);
+      const savingsClass = savings > 0 ? 'text-green-600 font-medium' : savings < 0 ? 'text-red-600 font-medium' : 'text-gray-600';
+
+      return (
+        <div className="text-xs space-y-1">
+          <div className="font-bold text-gray-800">${item.comparison_price.toFixed(2)}</div>
+          <div className="text-gray-500 text-[10px]">({item.comparison_vendor})</div>
+          <div className={savingsClass}>
+            {savings > 0 ? '+' : ''}{savings.toFixed(2)} {savings >= 0 ? 'Saved' : 'Loss'} / UOM
+          </div>
+        </div>
+      );
+    }
+    return (
+      <Link
+        href={`/inventory/edit?id=${item.id}`}
+        className="text-xs text-blue-600 hover:text-blue-800 underline"
+      >
+        Set Comparison (P1)
+      </Link>
+    );
+  };
+
   return (
     <div className="space-y-6 pb-20">
 
@@ -238,6 +270,13 @@ export default function InventoryReportPage() {
                     <p className="text-lg font-bold text-primary">
                       {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
                     </p>
+                    {/* Vendor Comparison for Mobile */}
+                    {item.comparison_price && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        <div className="font-medium">vs ${item.comparison_price.toFixed(2)}</div>
+                        <div>({item.comparison_vendor})</div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -254,6 +293,7 @@ export default function InventoryReportPage() {
                   <th className="px-6 py-4 font-medium">Location Breakdown</th>
                   <th className="px-6 py-4 font-medium text-right">Cost</th>
                   <th className="px-6 py-4 font-medium text-right">Total Qty</th>
+                  <th className="px-6 py-4 font-medium">Best Price & Savings</th>
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium">Actions</th>
                 </tr>
@@ -282,6 +322,9 @@ export default function InventoryReportPage() {
                     <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
                     <td className="px-6 py-4 text-right font-bold text-foreground">
                       {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
+                    </td>
+                    <td className="px-6 py-4">
+                      {renderSavingsCell(item)}
                     </td>
                     <td className="px-6 py-4">
                       {getStockStatus(item)}
