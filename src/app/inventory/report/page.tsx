@@ -175,7 +175,7 @@ export default function InventoryReportPage() {
           <div className="font-bold text-gray-800">${item.comparison_price.toFixed(2)}</div>
           <div className="text-gray-500 text-[10px]">({item.comparison_vendor})</div>
           <div className={savingsClass}>
-            {savings > 0 ? '+' : ''}{savings.toFixed(2)} {savings >= 0 ? 'Saved' : 'Loss'} / UOM
+            {savings > 0 ? '+' : ''}{savings.toFixed(2)} {savings >= 0 ? 'Saved' : 'Loss'} / {formatQuantityWithUnit(1, item.unit_of_measure).split(' ')[1]}
           </div>
         </div>
       );
