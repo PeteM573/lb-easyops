@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit, ChevronLeft, ChevronRight, Info, Plus } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit, ChevronLeft, ChevronRight, Info, Plus, CheckSquare, Square } from 'lucide-react';
 import Link from 'next/link';
 import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 
@@ -35,8 +36,20 @@ export default function InventoryReportPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [userRole, setUserRole] = useState<string>('staff');
+
+  const searchParams = useSearchParams();
+
+  // Check for URL filter params
+  useEffect(() => {
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'low_stock') {
+      setShowLowStockOnly(true);
+    }
+  }, [searchParams]);
 
   // --- Data Fetching ---
   useEffect(() => {
@@ -83,7 +96,21 @@ export default function InventoryReportPage() {
       setItems(mergedItems);
       setLoading(false);
     };
+
+    const fetchUserRole = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        setUserRole(profile?.role || 'staff');
+      }
+    };
+
     fetchItems();
+    fetchUserRole();
   }, [supabase]);
 
   // --- Computed Data ---
@@ -92,9 +119,11 @@ export default function InventoryReportPage() {
       const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.storage_location?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === 'All' || item.category === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const matchesLowStock = !showLowStockOnly || (item.stock_quantity <= (item.alert_threshold || 0));
+
+      return matchesSearch && matchesCategory && matchesLowStock;
     });
-  }, [items, searchTerm, categoryFilter]);
+  }, [items, searchTerm, categoryFilter, showLowStockOnly]);
 
   const uniqueCategories = useMemo(() => {
     const cats = new Set(items.map(i => i.category).filter(Boolean));
@@ -114,20 +143,36 @@ export default function InventoryReportPage() {
 
   // --- Export to CSV ---
   const handleExport = () => {
-    const headers = ['Name', 'Category', 'Total Stock', 'UOM', 'Cost', 'Location Breakdown'];
+    const isManager = userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin';
+
+    // Define headers based on role
+    const headers = ['Name', 'Category', 'Total Stock', 'UOM', 'Location Breakdown'];
+    if (isManager) {
+      headers.push('Cost');
+      headers.push('Comparison Price');
+      headers.push('Comparison Vendor');
+    }
+
     const rows = filteredItems.map(item => {
       const breakdownStr = item.location_breakdown
         ?.map(l => `${l.location_name}: ${l.quantity}`)
         .join('; ') || '';
 
-      return [
+      const row = [
         item.name,
         item.category,
         item.stock_quantity,
         item.unit_of_measure,
-        item.cost_per_unit,
         breakdownStr
       ];
+
+      if (isManager) {
+        row.push(item.cost_per_unit);
+        row.push(item.comparison_price || '');
+        row.push(item.comparison_vendor || '');
+      }
+
+      return row;
     });
 
     const csvContent = [
@@ -230,17 +275,29 @@ export default function InventoryReportPage() {
           />
         </div>
         <div className="relative w-full md:w-48">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="w-full pl-10 pr-8 py-2 rounded-lg border border-input focus:ring-2 focus:ring-primary outline-none appearance-none bg-white"
+            className="w-full pl-10 pr-8 py-2 rounded-lg border border-input focus:ring-2 focus:ring-primary outline-none appearance-none bg-white cursor-pointer"
           >
             {uniqueCategories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
           </select>
         </div>
+
+        {/* Low Stock Toggle */}
+        <button
+          onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showLowStockOnly
+            ? 'bg-amber-50 border-amber-200 text-amber-700'
+            : 'bg-white border-input text-gray-600 hover:bg-gray-50'
+            }`}
+        >
+          {showLowStockOnly ? <CheckSquare size={20} /> : <Square size={20} />}
+          <span className="font-medium">Low Stock Only</span>
+        </button>
       </div>
 
       {/* Data Display */}
@@ -279,8 +336,8 @@ export default function InventoryReportPage() {
                     <p className="text-lg font-bold text-primary">
                       {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
                     </p>
-                    {/* Vendor Comparison for Mobile */}
-                    {item.comparison_price && (
+                    {/* Vendor Comparison for Mobile (Manager Only) */}
+                    {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && item.comparison_price && (
                       <div className="mt-2 text-xs text-gray-500">
                         <div className="font-medium">vs ${item.comparison_price.toFixed(2)}</div>
                         <div>({item.comparison_vendor})</div>
@@ -300,9 +357,14 @@ export default function InventoryReportPage() {
                   <th className="px-6 py-4 font-medium">Item Name</th>
                   <th className="px-6 py-4 font-medium">Category</th>
                   <th className="px-6 py-4 font-medium">Location Breakdown</th>
-                  <th className="px-6 py-4 font-medium text-right">Cost</th>
+                  <th className="px-6 py-4 font-medium">Location Breakdown</th>
+                  {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
+                    <>
+                      <th className="px-6 py-4 font-medium text-right">Cost</th>
+                      <th className="px-6 py-4 font-medium">Best Price & Savings</th>
+                    </>
+                  )}
                   <th className="px-6 py-4 font-medium text-right">Total Qty</th>
-                  <th className="px-6 py-4 font-medium">Best Price & Savings</th>
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium">Actions</th>
                 </tr>
@@ -328,13 +390,17 @@ export default function InventoryReportPage() {
                         <span className="text-gray-400 italic">No location data</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
                     <td className="px-6 py-4 text-right font-bold text-foreground">
                       {formatQuantityWithUnit(item.stock_quantity, item.unit_of_measure)}
                     </td>
-                    <td className="px-6 py-4">
-                      {renderSavingsCell(item)}
-                    </td>
+                    {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
+                      <>
+                        <td className="px-6 py-4 text-right font-mono text-gray-600">${item.cost_per_unit}</td>
+                        <td className="px-6 py-4">
+                          {renderSavingsCell(item)}
+                        </td>
+                      </>
+                    )}
                     <td className="px-6 py-4">
                       {getStockStatus(item)}
                     </td>

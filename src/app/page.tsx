@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import Link from 'next/link';
-import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar, Plus, Trash2, X, TrendingUp, DollarSign, Package, Activity, ShoppingBag } from 'lucide-react';
+import { PackagePlus, Search, Truck, AlertCircle, Circle, CheckCircle2, Utensils, Calendar, Plus, Trash2, X, TrendingUp, DollarSign, Package, Activity, ShoppingBag, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
 import { getDashboardMetrics, formatCurrency, formatPercentage, type DashboardMetrics } from '@/lib/analytics';
 import { getRecentActivity } from '@/lib/inventory-tracking';
 import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
@@ -39,6 +39,7 @@ export default function Dashboard() {
     const [upcomingDates, setUpcomingDates] = useState<UpcomingDate[]>([]);
     const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
     const [recentActivity, setRecentActivity] = useState<any[]>([]);
+    const [showMetrics, setShowMetrics] = useState(true);
 
     // General Dates Management
     const [showGeneralDatesModal, setShowGeneralDatesModal] = useState(false);
@@ -205,55 +206,68 @@ export default function Dashboard() {
 
             {/* 2. Manager-Only Metrics */}
             {isManager && metrics && (
-                <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Inventory Value */}
-                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                <Package size={20} />
-                            </div>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Inventory Value</p>
-                        </div>
-                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.inventoryValue)}</p>
+                <section>
+                    <div className="flex items-center justify-between mb-3 md:hidden">
+                        <h3 className="font-semibold text-gray-700">Business Overview</h3>
+                        <button
+                            onClick={() => setShowMetrics(!showMetrics)}
+                            className="text-sm text-primary flex items-center gap-1 font-medium"
+                        >
+                            {showMetrics ? 'Hide' : 'Show'}
+                            {showMetrics ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
                     </div>
 
-                    {/* Monthly COGS */}
-                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
-                                <TrendingUp size={20} />
+                    <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 ${!showMetrics ? 'hidden md:grid' : ''}`}>
+                        {/* Inventory Value */}
+                        <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                    <Package size={20} />
+                                </div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Inventory Value</p>
                             </div>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monthly COGS</p>
+                            <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.inventoryValue)}</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.monthlyCOGS)}</p>
-                    </div>
 
-                    {/* Gross Profit */}
-                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-green-100 text-green-600 rounded-lg">
-                                <DollarSign size={20} />
+                        {/* Monthly COGS */}
+                        <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                                    <TrendingUp size={20} />
+                                </div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Monthly COGS</p>
                             </div>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gross Profit</p>
+                            <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.monthlyCOGS)}</p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.monthlyGrossProfit)}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                            {metrics.monthlyRevenue > 0
-                                ? formatPercentage((metrics.monthlyGrossProfit / metrics.monthlyRevenue) * 100)
-                                : '0%'} margin
-                        </p>
-                    </div>
 
-                    {/* Sales Today */}
-                    <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-primary/10 text-primary rounded-lg">
-                                <Activity size={20} />
+                        {/* Gross Profit */}
+                        <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                                    <DollarSign size={20} />
+                                </div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Gross Profit</p>
                             </div>
-                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sales Today</p>
+                            <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.monthlyGrossProfit)}</p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {metrics.monthlyRevenue > 0
+                                    ? formatPercentage((metrics.monthlyGrossProfit / metrics.monthlyRevenue) * 100)
+                                    : '0%'} margin
+                            </p>
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.salesToday.revenue)}</p>
-                        <p className="text-xs text-gray-500 mt-1">{metrics.salesToday.count} transaction{metrics.salesToday.count !== 1 ? 's' : ''}</p>
+
+                        {/* Sales Today */}
+                        <div className="bg-white p-4 rounded-xl border border-border shadow-sm">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-primary/10 text-primary rounded-lg">
+                                    <Activity size={20} />
+                                </div>
+                                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Sales Today</p>
+                            </div>
+                            <p className="text-2xl font-bold text-foreground">{formatCurrency(metrics.salesToday.revenue)}</p>
+                            <p className="text-xs text-gray-500 mt-1">{metrics.salesToday.count} transaction{metrics.salesToday.count !== 1 ? 's' : ''}</p>
+                        </div>
                     </div>
                 </section>
             )}
@@ -262,15 +276,15 @@ export default function Dashboard() {
             {(lowStockCount > 0 || tasks.length > 0 || upcomingDates.length > 0) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {lowStockCount > 0 && (
-                        <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-4">
+                        <Link href="/inventory/report?filter=low_stock" className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-4 hover:bg-amber-100 transition-colors cursor-pointer">
                             <div className="p-3 bg-amber-100 text-amber-700 rounded-full">
-                                <AlertCircle size={24} />
+                                <AlertTriangle size={24} />
                             </div>
                             <div>
                                 <p className="font-bold text-amber-900">{lowStockCount} Items Low Stock</p>
                                 <p className="text-sm text-amber-700">Check inventory report</p>
                             </div>
-                        </div>
+                        </Link>
                     )}
 
                     {/* Upcoming Dates Alert (Manager Only) */}
