@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { PackagePlus, MapPin, DollarSign, AlertCircle, Check, X, Package, Loader2, Edit, Calendar, Trash2, Plus, Barcode as BarcodeIcon } from 'lucide-react';
 import BarcodeGenerator from '@/components/BarcodeGenerator';
 import BarcodePrintButton from '@/components/BarcodePrintButton';
+import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 
 export default function EditItemPage() {
     const supabase = createBrowserClient(
@@ -563,7 +564,7 @@ export default function EditItemPage() {
                                     <div className="pt-2 border-t border-gray-200 flex justify-between items-center">
                                         <span className="font-bold text-gray-700">Total Stock</span>
                                         <span className="font-bold text-lg text-primary">
-                                            {Object.values(stockMap).reduce((a, b) => a + b, 0)} {uom}
+                                            {formatQuantityWithUnit(Object.values(stockMap).reduce((a, b) => a + b, 0), uom)}
                                         </span>
                                     </div>
                                 </div>
