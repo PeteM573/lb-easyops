@@ -45,6 +45,10 @@ export default function EditItemPage() {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
 
+    // Delete confirmation state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
     // Helper function to generate unique 10-digit barcode number
     const generateBarcodeNumber = () => {
         // Generate random 10-digit number
@@ -289,6 +293,47 @@ export default function EditItemPage() {
         setTimeout(() => {
             router.push('/inventory/report');
         }, 1500);
+    };
+
+    const handleDelete = async () => {
+        if (deleteConfirmText !== 'DELETE') {
+            setError('Please type DELETE to confirm');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            // 1. Delete item_dates
+            await supabase.from('item_dates').delete().eq('item_id', itemId);
+
+            // 2. Delete item_locations
+            await supabase.from('item_locations').delete().eq('item_id', itemId);
+
+            // 3. Delete inventory_log entries
+            await supabase.from('inventory_log').delete().eq('item_id', itemId);
+
+            // 4. Delete the item itself
+            const { error: deleteError } = await supabase
+                .from('items')
+                .delete()
+                .eq('id', itemId);
+
+            if (deleteError) {
+                setError(`Failed to delete item: ${deleteError.message}`);
+                setIsSubmitting(false);
+                return;
+            }
+
+            setSuccess(`Successfully deleted "${itemName}"!`);
+            setTimeout(() => {
+                router.push('/inventory/report');
+            }, 1000);
+        } catch (err) {
+            setError('An unexpected error occurred while deleting the item');
+            setIsSubmitting(false);
+        }
     };
 
     const handleStockChange = (locId: number, val: string) => {
@@ -794,6 +839,97 @@ export default function EditItemPage() {
                     </div>
 
                 </form>
+
+                {/* Delete Button (Manager Only) */}
+                {(userRole.toLowerCase() === 'manager' || userRole.toLowerCase() === 'admin') && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                        <button
+                            type="button"
+                            onClick={() => setShowDeleteModal(true)}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        >
+                            <Trash2 size={16} />
+                            Delete Item
+                        </button>
+                    </div>
+                )}
+
+                {/* Delete Confirmation Modal */}
+                {showDeleteModal && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                                    <AlertCircle className="text-red-600" size={24} />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Delete Item</h3>
+                                    <p className="text-sm text-gray-500">This action cannot be undone</p>
+                                </div>
+                            </div>
+
+                            <div className="mb-4">
+                                <p className="text-sm text-gray-600 mb-4">
+                                    You are about to delete <strong>"{itemName}"</strong> and all associated data including:
+                                </p>
+                                <ul className="text-sm text-gray-600 space-y-1 ml-4 list-disc">
+                                    <li>All stock records across locations</li>
+                                    <li>Inventory transaction history</li>
+                                    <li>Important dates and reminders</li>
+                                </ul>
+                            </div>
+
+                            <div className="mb-6">
+                                <label htmlFor="deleteConfirm" className="block text-sm font-medium text-gray-700 mb-2">
+                                    Type <span className="font-mono font-bold">DELETE</span> to confirm:
+                                </label>
+                                <input
+                                    type="text"
+                                    id="deleteConfirm"
+                                    value={deleteConfirmText}
+                                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                                    className="block w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none"
+                                    placeholder="Type DELETE"
+                                    autoComplete="off"
+                                />
+                            </div>
+
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowDeleteModal(false);
+                                        setDeleteConfirmText('');
+                                        setError(null);
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg transition-colors"
+                                    disabled={isSubmitting}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleDelete}
+                                    disabled={deleteConfirmText !== 'DELETE' || isSubmitting}
+                                    className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <Loader2 className="animate-spin" size={16} />
+                                            Deleting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Trash2 size={16} />
+                                            Delete Item
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </main>
         </div >
     );
