@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
-import { UserPlus, Users, Shield, ArrowLeft, Check, X, Loader2, Trash2 } from 'lucide-react';
+import { UserPlus, Users, Shield, ArrowLeft, Check, X, Loader2, Trash2, Key } from 'lucide-react';
 import Link from 'next/link';
 
 interface User {
@@ -151,6 +151,28 @@ export default function AdminUsersPage() {
             }
         } catch (err) {
             setError('Failed to delete user');
+        }
+    };
+
+    const handleResetPassword = async (userId: string, userEmail: string) => {
+        if (!confirm(`Reset password for ${userEmail}?\n\nThis will require them to change their password on next login.`)) {
+            return;
+        }
+
+        try {
+            const { error } = await supabase
+                .from('profiles')
+                .update({ force_password_change: true })
+                .eq('id', userId);
+
+            if (error) {
+                setError(`Failed to reset password: ${error.message}`);
+            } else {
+                setSuccess(`Password reset for ${userEmail}. They will be required to change password on next login.`);
+                setTimeout(() => setSuccess(null), 5000);
+            }
+        } catch (err) {
+            setError('Failed to reset password');
         }
     };
 
@@ -329,6 +351,14 @@ export default function AdminUsersPage() {
                                                 className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
                                             >
                                                 Toggle Role
+                                            </button>
+
+                                            <button
+                                                onClick={() => handleResetPassword(user.id, user.email)}
+                                                className="p-2 bg-amber-50 hover:bg-amber-100 text-amber-600 rounded-lg transition-colors"
+                                                title="Reset password"
+                                            >
+                                                <Key size={18} />
                                             </button>
 
                                             <button

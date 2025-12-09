@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit, ChevronLeft, ChevronRight, Info } from 'lucide-react';
+import { Search, Download, Filter, AlertTriangle, Package, ArrowUpDown, Edit, ChevronLeft, ChevronRight, Info, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { formatQuantityWithUnit } from '@/lib/pluralize-unit';
 
@@ -199,13 +199,22 @@ export default function InventoryReportPage() {
           <h1 className="text-2xl font-bold text-primary">Inventory Report</h1>
           <p className="text-sm text-gray-500">View and export current stock levels.</p>
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center justify-center gap-2 bg-white border border-border text-foreground px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium"
-        >
-          <Download size={18} />
-          Export CSV
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/inventory/new"
+            className="flex items-center justify-center gap-2 bg-primary text-white px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors shadow-sm font-medium"
+          >
+            <Plus size={18} />
+            Add Item
+          </Link>
+          <button
+            onClick={handleExport}
+            className="flex items-center justify-center gap-2 bg-white border border-border text-foreground px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium"
+          >
+            <Download size={18} />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
