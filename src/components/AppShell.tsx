@@ -60,14 +60,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       {/* --- Desktop Sidebar --- */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-border h-screen sticky top-0">
         <div className="p-6 border-b border-border flex flex-col items-center">
-          <Image
-            src="/LB_LOGO_whitespace.png"
-            alt="Loud Baby"
-            width={320}
-            height={106}
-            className="w-auto h-20"
-            priority
-          />
+          <Link href="/">
+            <Image
+              src="/LB_LOGO_whitespace.png"
+              alt="Loud Baby"
+              width={320}
+              height={106}
+              className="w-auto h-20"
+              priority
+            />
+          </Link>
           <p className="text-xs text-muted-foreground mt-2">Easy Ops</p>
         </div>
         <nav className="flex-1 p-4 space-y-2">
@@ -128,14 +130,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* --- Mobile Header --- */}
       <header className="md:hidden h-16 bg-white border-b border-border flex items-center justify-between px-4 sticky top-0 z-10">
-        <Image
-          src="/LB_LOGO_whitespace.png"
-          alt="Loud Baby"
-          width={120}
-          height={40}
-          className="w-auto h-8"
-          priority
-        />
+        <Link href="/">
+          <Image
+            src="/LB_LOGO_whitespace.png"
+            alt="Loud Baby"
+            width={120}
+            height={40}
+            className="w-auto h-8"
+            priority
+          />
+        </Link>
         <button onClick={handleLogout} className="p-2 text-gray-500">
           <LogOut size={20} />
         </button>
