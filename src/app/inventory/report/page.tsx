@@ -26,6 +26,15 @@ type Item = {
   comparison_vendor: string | null;
 };
 
+const getCategoryColor = (category: string) => {
+  const normalized = category.toLowerCase();
+  if (normalized.includes('retail')) return 'bg-rose-100 text-rose-800 border-rose-200';
+  if (normalized.includes('accessories')) return 'bg-blue-100 text-blue-800 border-blue-200';
+  if (normalized.includes('raw')) return 'bg-green-100 text-green-800 border-green-200';
+  if (normalized.includes('consumable')) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+  return 'bg-gray-100 text-gray-800 border-gray-200';
+};
+
 export default function InventoryReportPage() {
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -324,7 +333,9 @@ export default function InventoryReportPage() {
                 </div>
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <p className="text-sm text-gray-500">{item.category}</p>
+                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getCategoryColor(item.category)}`}>
+                      {item.category}
+                    </span>
                     {/* Breakdown for Mobile */}
                     <div className="text-xs text-gray-400 space-y-0.5">
                       {item.location_breakdown?.map((loc, idx) => (
@@ -374,7 +385,9 @@ export default function InventoryReportPage() {
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
                     <td className="px-6 py-4 text-gray-500">
-                      <span className="bg-gray-100 px-2 py-1 rounded-md text-xs">{item.category}</span>
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getCategoryColor(item.category)}`}>
+                        {item.category}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-gray-500 text-xs">
                       {item.location_breakdown && item.location_breakdown.length > 0 ? (
