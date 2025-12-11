@@ -24,6 +24,13 @@ interface UpcomingDate {
     type: 'item' | 'general';
 }
 
+// Helper to format YYYY-MM-DD string to local date string without timezone shift
+const formatDateForDisplay = (dateString: string) => {
+    if (!dateString) return '';
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString();
+};
+
 export default function Dashboard() {
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -303,7 +310,7 @@ export default function Dashboard() {
                                             ) : (
                                                 <span className="font-medium text-blue-800">{d.label}</span>
                                             )}
-                                            <span className="text-blue-600 ml-1">({new Date(d.target_date).toLocaleDateString()})</span>
+                                            <span className="text-blue-600 ml-1">({formatDateForDisplay(d.target_date)})</span>
                                         </div>
                                     ))}
                                     {upcomingDates.length > 2 && (
@@ -518,7 +525,7 @@ export default function Dashboard() {
                                         <div key={date.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
                                             <div>
                                                 <p className="font-medium text-sm">{date.label}</p>
-                                                <p className="text-xs text-gray-500">{new Date(date.target_date).toLocaleDateString()}</p>
+                                                <p className="text-xs text-gray-500">{formatDateForDisplay(date.target_date)}</p>
                                             </div>
                                             <button
                                                 onClick={() => handleDeleteGeneralDate(date.id)}
