@@ -333,7 +333,7 @@ export default function InventoryReportPage() {
                 </div>
                 <div className="flex justify-between items-end">
                   <div className="space-y-1">
-                    <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getCategoryColor(item.category)}`}>
+                    <span className={`px-2 py-1 rounded-md text-xs font-medium border whitespace-nowrap ${getCategoryColor(item.category)}`}>
                       {item.category}
                     </span>
                     {/* Breakdown for Mobile */}
@@ -385,7 +385,7 @@ export default function InventoryReportPage() {
                   <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 font-medium text-foreground">{item.name}</td>
                     <td className="px-6 py-4 text-gray-500">
-                      <span className={`px-2 py-1 rounded-md text-xs font-medium border ${getCategoryColor(item.category)}`}>
+                      <span className={`px-2 py-1 rounded-md text-xs font-medium border whitespace-nowrap ${getCategoryColor(item.category)}`}>
                         {item.category}
                       </span>
                     </td>
