@@ -56,57 +56,118 @@ export async function POST(request: NextRequest) {
       // Default to production unless SQUARE_ENVIRONMENT is explicitly set to 'sandbox'
       const isSandbox = process.env.SQUARE_ENVIRONMENT === 'sandbox';
       const baseUrl = isSandbox ? 'https://connect.squareupsandbox.com' : 'https://connect.squareup.com';
+      const accessToken = process.env.SQUARE_ACCESS_TOKEN || process.env.SQUARE_SANDBOX_ACCESS_TOKEN;
 
-      // Use native fetch
-      const response = await fetch(`${baseUrl}/v2/orders/${orderId}`, {
+      // 1. Fetch Order Details
+      const orderResponse = await fetch(`${baseUrl}/v2/orders/${orderId}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN || process.env.SQUARE_SANDBOX_ACCESS_TOKEN}`,
+          'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`Square API error: ${response.status} ${response.statusText}`);
+      if (!orderResponse.ok) {
+        throw new Error(`Square API error (Order): ${orderResponse.status} ${orderResponse.statusText}`);
       }
 
-      const data = await response.json();
-      const lineItems = data.order?.line_items || [];
+      const orderData = await orderResponse.json();
+      const lineItems = orderData.order?.line_items || [];
 
       console.log(`Found ${lineItems.length} line items in the order.`);
 
+      // 2. Collect Catalog Object IDs to fetch SKUs
+      const catalogObjectIds = lineItems
+        .map((item: any) => item.catalog_object_id)
+        .filter((id: string | undefined) => !!id);
+
+      const skuMap = new Map<string, string>();
+
+      if (catalogObjectIds.length > 0) {
+        console.log(`Fetching catalog objects for ${catalogObjectIds.length} items...`);
+
+        const catalogResponse = await fetch(`${baseUrl}/v2/catalog/batch-retrieve`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            object_ids: catalogObjectIds,
+            include_related_objects: false
+          })
+        });
+
+        if (catalogResponse.ok) {
+          const catalogData = await catalogResponse.json();
+          const objects = catalogData.objects || [];
+
+          for (const obj of objects) {
+            // In Square, the SKU is typically on the ITEM_VARIATION
+            if (obj.type === 'ITEM_VARIATION' && obj.item_variation_data?.sku) {
+              skuMap.set(obj.id, obj.item_variation_data.sku);
+            }
+          }
+        } else {
+          console.error(`Failed to batch retrieve catalog objects: ${catalogResponse.status}`);
+        }
+      }
+
+      // 3. Process Line Items
       for (const squareItem of lineItems) {
         const itemName = squareItem.name;
         const quantitySold = parseInt(squareItem.quantity, 10);
+        const catalogObjectId = squareItem.catalog_object_id;
 
-        if (!itemName) continue;
+        // Try to get SKU from map
+        const sku = catalogObjectId ? skuMap.get(catalogObjectId) : null;
 
-        console.log(`Processing item: ${itemName}, Quantity: ${quantitySold}`);
-
-        // Use supabaseAdmin instead of the normal client
-        const { data: dbItem, error: fetchError } = await supabaseAdmin
-          .from('items')
-          .select('id, stock_quantity')
-          .eq('name', itemName)
-          .single();
-
-        if (fetchError || !dbItem) {
-          console.warn(`Item "${itemName}" from Square order not found in DB. Skipping.`);
+        if (!sku) {
+          console.warn(`Skipping item "${itemName}" (ID: ${catalogObjectId}): No SKU found in Square Catalog.`);
           continue;
         }
 
+        console.log(`Processing item: "${itemName}", SKU: ${sku}, Quantity: ${quantitySold}`);
+
+        // 4. Match by UPC (barcode_number) in DB
+        const { data: dbItem, error: fetchError } = await supabaseAdmin
+          .from('items')
+          .select('id, stock_quantity, is_auto_deduct, name')
+          .eq('barcode_number', sku)
+          .single();
+
+        if (fetchError || !dbItem) {
+          console.warn(`Item with SKU "${sku}" not found in DB. Skipping.`);
+          continue;
+        }
+
+        // 5. Check Auto-Deduct Flag
+        if (!dbItem.is_auto_deduct) {
+          console.log(`Item "${dbItem.name}" (SKU: ${sku}) found, but auto-deduct is DISABLED. Skipping.`);
+          continue;
+        }
+
+        // 6. Deduct Inventory
         const newQuantity = dbItem.stock_quantity - quantitySold;
 
-        // Use supabaseAdmin here too
         const { error: updateError } = await supabaseAdmin
           .from('items')
           .update({ stock_quantity: newQuantity })
           .eq('id', dbItem.id);
 
+        // Log the deduction
+        await supabaseAdmin.from('inventory_log').insert({
+          item_id: dbItem.id,
+          quantity_change: -quantitySold,
+          change_type: 'SALE',
+          notes: `Square Sale (Order: ${orderId})`,
+          // user_id is null for system actions
+        });
+
         if (updateError) {
-          console.error(`Failed to update stock for "${itemName}". Error: ${updateError.message}`);
+          console.error(`Failed to update stock for "${dbItem.name}". Error: ${updateError.message}`);
         } else {
-          console.log(`Successfully updated stock for "${itemName}" to ${newQuantity}.`);
+          console.log(`Successfully deducted ${quantitySold} from "${dbItem.name}". New Stock: ${newQuantity}.`);
         }
       }
     }
