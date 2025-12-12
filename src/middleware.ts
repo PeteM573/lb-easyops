@@ -4,14 +4,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 export async function middleware(request: NextRequest) {
   // --- THE NEW, ROBUST FIX ---
-  // Check for the unique Square webhook signature header.
+  // --- THE NEW, ROBUST FIX ---
+  // Check for the unique Square webhook signature header OR the specific path.
   const squareSignature = request.headers.get('x-square-signature');
+  const isWebhookRoute = request.nextUrl.pathname.startsWith('/api/square-webhook');
 
-  if (squareSignature) {
+  if (squareSignature || isWebhookRoute) {
     // This is a Square webhook. Let it pass through to the API route directly.
-    console.log('[Middleware] Square signature header detected. Bypassing auth.');
+    console.log(`[Middleware] Bypassing auth for ${request.nextUrl.pathname} (Signature: ${!!squareSignature}, Route Match: ${isWebhookRoute})`);
     return NextResponse.next();
   }
+  // --- END OF FIX ---
   // --- END OF FIX ---
 
   // --- All other requests (from normal users) will continue to the auth check ---
@@ -63,7 +66,7 @@ export async function middleware(request: NextRequest) {
   if (session && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url));
   }
-  
+
   return response;
 }
 
