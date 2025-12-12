@@ -8,8 +8,8 @@ export async function POST(request: NextRequest) {
   try {
     const signature = request.headers.get('x-square-signature');
     const rawBody = await request.text();
-    
-    const webhookSecret = process.env.SQUARE_SANDBOX_WEBHOOK_SECRET;
+
+    const webhookSecret = process.env.SQUARE_WEBHOOK_SECRET || process.env.SQUARE_SANDBOX_WEBHOOK_SECRET;
 
     if (!signature || !webhookSecret) {
       console.error("Validation failed: Missing signature or secret.");
@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
     const host = request.headers.get('host');
     const proto = request.headers.get('x-forwarded-proto') || 'https';
     const derivedUrl = `${proto}://${host}/api/square-webhook`;
-    
+
     const stringToSign = `${derivedUrl}${rawBody}`;
     const hmac = crypto.createHmac('sha256', webhookSecret);
     hmac.update(stringToSign);
     const expectedSignature = hmac.digest('base64');
 
     if (signature !== expectedSignature) {
-      console.warn("⚠️ Sandbox Warning: Signature mismatch.");
+      console.warn("⚠️ Webhook Warning: Signature mismatch.");
       // We proceed for testing purposes
     } else {
       console.log("✅ Square Webhook: Signature validated successfully.");
@@ -52,11 +52,16 @@ export async function POST(request: NextRequest) {
 
       console.log(`Fetching details for order: ${orderId}`);
 
+      // Determine API URL based on environment or config
+      // Default to production unless SQUARE_ENVIRONMENT is explicitly set to 'sandbox'
+      const isSandbox = process.env.SQUARE_ENVIRONMENT === 'sandbox';
+      const baseUrl = isSandbox ? 'https://connect.squareupsandbox.com' : 'https://connect.squareup.com';
+
       // Use native fetch
-      const response = await fetch(`https://connect.squareupsandbox.com/v2/orders/${orderId}`, {
+      const response = await fetch(`${baseUrl}/v2/orders/${orderId}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${process.env.SQUARE_SANDBOX_ACCESS_TOKEN}`,
+          'Authorization': `Bearer ${process.env.SQUARE_ACCESS_TOKEN || process.env.SQUARE_SANDBOX_ACCESS_TOKEN}`,
           'Content-Type': 'application/json',
         },
       });
@@ -91,7 +96,7 @@ export async function POST(request: NextRequest) {
         }
 
         const newQuantity = dbItem.stock_quantity - quantitySold;
-        
+
         // Use supabaseAdmin here too
         const { error: updateError } = await supabaseAdmin
           .from('items')

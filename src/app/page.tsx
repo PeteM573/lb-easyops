@@ -37,6 +37,9 @@ export default function Dashboard() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
+    // DEMO MODE: Set to true to show mock data for the demo video
+    const DEMO_MODE = true;
+
     const [tasks, setTasks] = useState<Task[]>([]);
     const [userId, setUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -128,8 +131,23 @@ export default function Dashboard() {
 
                     // Fetch Dashboard Metrics
                     try {
-                        const dashboardMetrics = await getDashboardMetrics(supabase);
-                        setMetrics(dashboardMetrics);
+                        if (DEMO_MODE) {
+                            setMetrics({
+                                inventoryValue: 12450.00,
+                                monthlyCOGS: 3200.50,
+                                monthlyGrossProfit: 4500.25,
+                                monthlyRevenue: 7700.75,
+                                salesToday: {
+                                    revenue: 450.00,
+                                    count: 12
+                                },
+                                lowStockCount: 3, // Keep this somewhat realistic or dynamic if possible, but hardcoded is fine for demo
+                                negativeStockCount: 0
+                            });
+                        } else {
+                            const dashboardMetrics = await getDashboardMetrics(supabase);
+                            setMetrics(dashboardMetrics);
+                        }
                     } catch (error) {
                         console.error('Error fetching dashboard metrics:', error);
                     }
