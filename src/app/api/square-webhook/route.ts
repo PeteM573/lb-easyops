@@ -47,10 +47,11 @@ export async function POST(request: NextRequest) {
       const orderId = payment.order_id;
 
       if (!orderId) {
+        console.warn("[Square Webhook] No Order ID found in payment object.");
         return NextResponse.json({ success: true, message: 'No order ID, ignored.' });
       }
 
-      console.log(`Fetching details for order: ${orderId}`);
+      console.log(`[Square Webhook] Fetching details for order: ${orderId}`);
 
       // Determine API URL based on environment or config
       // Default to production unless SQUARE_ENVIRONMENT is explicitly set to 'sandbox'
@@ -68,6 +69,8 @@ export async function POST(request: NextRequest) {
       });
 
       if (!orderResponse.ok) {
+        const errorText = await orderResponse.text();
+        console.error(`[Square Webhook] Order Fetch Failed: ${orderResponse.status} ${orderResponse.statusText}`, errorText);
         throw new Error(`Square API error (Order): ${orderResponse.status} ${orderResponse.statusText}`);
       }
 
@@ -101,6 +104,7 @@ export async function POST(request: NextRequest) {
         if (catalogResponse.ok) {
           const catalogData = await catalogResponse.json();
           const objects = catalogData.objects || [];
+          console.log(`[Square Webhook] Retrieved ${objects.length} catalog objects.`);
 
           for (const obj of objects) {
             // In Square, the SKU is typically on the ITEM_VARIATION
@@ -108,9 +112,12 @@ export async function POST(request: NextRequest) {
               skuMap.set(obj.id, obj.item_variation_data.sku);
             }
           }
+          console.log(`[Square Webhook] Successfully mapped ${skuMap.size} SKUs.`);
         } else {
-          console.error(`Failed to batch retrieve catalog objects: ${catalogResponse.status}`);
+          console.error(`[Square Webhook] Catalog Batch Retrieve Failed: ${catalogResponse.status}`);
         }
+      } else {
+        console.log("[Square Webhook] No catalog object IDs found in line items (Ad-hoc items?).");
       }
 
       // 3. Process Line Items
@@ -119,15 +126,17 @@ export async function POST(request: NextRequest) {
         const quantitySold = parseInt(squareItem.quantity, 10);
         const catalogObjectId = squareItem.catalog_object_id;
 
+        console.log(`[Square Webhook] Processing Line Item: "${itemName}" (Qty: ${quantitySold}, Catalog ID: ${catalogObjectId})`);
+
         // Try to get SKU from map
         const sku = catalogObjectId ? skuMap.get(catalogObjectId) : null;
 
         if (!sku) {
-          console.warn(`Skipping item "${itemName}" (ID: ${catalogObjectId}): No SKU found in Square Catalog.`);
+          console.warn(`[Square Webhook] SKIP: No SKU found for "${itemName}" (ID: ${catalogObjectId}). Is it an ad-hoc item or missing SKU in Square?`);
           continue;
         }
 
-        console.log(`Processing item: "${itemName}", SKU: ${sku}, Quantity: ${quantitySold}`);
+        console.log(`[Square Webhook] Resolved SKU: "${sku}"`);
 
         // 4. Match by UPC (barcode_number) in DB
         const { data: dbItem, error: fetchError } = await supabaseAdmin
@@ -137,13 +146,15 @@ export async function POST(request: NextRequest) {
           .single();
 
         if (fetchError || !dbItem) {
-          console.warn(`Item with SKU "${sku}" not found in DB. Skipping.`);
+          console.warn(`[Square Webhook] SKIP: SKU "${sku}" not found in DB (barcode_number match failed).`);
           continue;
         }
 
+        console.log(`[Square Webhook] DB Match Found: "${dbItem.name}" (ID: ${dbItem.id}, Auto-Deduct: ${dbItem.is_auto_deduct})`);
+
         // 5. Check Auto-Deduct Flag
         if (!dbItem.is_auto_deduct) {
-          console.log(`Item "${dbItem.name}" (SKU: ${sku}) found, but auto-deduct is DISABLED. Skipping.`);
+          console.log(`[Square Webhook] SKIP: Auto-deduct is DISABLED for "${dbItem.name}".`);
           continue;
         }
 
@@ -165,9 +176,9 @@ export async function POST(request: NextRequest) {
         });
 
         if (updateError) {
-          console.error(`Failed to update stock for "${dbItem.name}". Error: ${updateError.message}`);
+          console.error(`[Square Webhook] ERROR: Failed to update stock for "${dbItem.name}". Error: ${updateError.message}`);
         } else {
-          console.log(`Successfully deducted ${quantitySold} from "${dbItem.name}". New Stock: ${newQuantity}.`);
+          console.log(`[Square Webhook] SUCCESS: Deducted ${quantitySold} from "${dbItem.name}". New Stock: ${newQuantity}.`);
         }
       }
     }
