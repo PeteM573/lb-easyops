@@ -485,7 +485,7 @@ export default function Dashboard() {
                                 <div className="flex-1">
                                     <p className="text-sm font-medium">{task.title}</p>
                                     <p className="text-xs text-gray-500">
-                                        {task.profiles?.[0]?.full_name ? `Assigned by ${task.profiles[0].full_name}` : 'Unassigned'}
+                                        Assigned to you
                                     </p>
                                 </div>
                             </div>
