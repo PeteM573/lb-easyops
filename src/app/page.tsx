@@ -368,7 +368,7 @@ export default function Dashboard() {
                             <div className="p-4 bg-green-100 text-green-600 rounded-full group-hover:scale-110 transition-transform">
                                 <ShoppingBag size={28} />
                             </div>
-                            <span className="font-medium text-foreground">Record Sale</span>
+                            <span className="font-medium text-foreground">Manual Sale Deduction</span>
                         </Link>
                     )}
 
