@@ -38,7 +38,7 @@ export default function Dashboard() {
     );
 
     // DEMO MODE: Set to true to show mock data for the demo video
-    const DEMO_MODE = true;
+    const DEMO_MODE = false;
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [userId, setUserId] = useState<string | null>(null);
