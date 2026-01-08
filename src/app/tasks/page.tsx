@@ -291,7 +291,7 @@ export default function TasksPage() {
           </div>
 
           {/* Create Task Form (Manager Only) */}
-          {userProfile?.role === 'Manager' && (
+          {userProfile?.role?.toLowerCase() === 'manager' && (
             <div className="bg-white rounded-xl border border-border shadow-sm overflow-hidden h-fit sticky top-24">
               <div className="bg-gray-50 px-6 py-3 border-b border-border">
                 <h2 className="font-semibold text-foreground flex items-center gap-2">

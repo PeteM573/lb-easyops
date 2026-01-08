@@ -15,8 +15,9 @@ A comprehensive inventory management and operations dashboard built for **Loud B
 - **Unit Conversions**: Intelligent handling of units (e.g., selling in 'servings' vs buying in 'cases').
 
 ### 🛒 **Square POS Integration**
-- **Realtime Sync**: Sales at the register automatically deduct inventory via webhooks.
-- **Catalog Import**: Seamlessly map Square catalog items to internal inventory records.
+- **Catalog Import**: Seamlessly map Square catalog items to internal inventory records via barcode/SKU matching.
+- **Manual Sales**: Record sales manually on the dashboard to keep inventory in sync with POS data.
+- *(Future)* **Realtime Sync**: Webhook infrastructure is in place for future automated deductions.
 
 ### 💰 **Reporting & Analytics**
 - **COGS Analysis**: Detailed cost tracking to understand profit margins per item.
@@ -33,24 +34,43 @@ A comprehensive inventory management and operations dashboard built for **Loud B
 
 Powered by modern web technologies for performance and reliability.
 
-- **Framework**: [Next.js 14](https://nextjs.org/) (React, TypeScript)
-- **Database**: [Supabase](https://supabase.com/) (PostgreSQL, Auth)
-- **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Lucide Icons](https://lucide.dev/)
-- **Integration**: Square API (Connect V2 & Webhooks)
-- **Tools**: `html5-qrcode` (Scanning), `jspdf` (Reporting)
+- **Framework**: [Next.js 14](https://nextjs.org/) (React, TypeScript) - App Router architecture.
+- **Database**: [Supabase](https://supabase.com/) (PostgreSQL, Auth) - Realtime database & row-level security.
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/) & [Lucide Icons](https://lucide.dev/).
+- **Integration**: Square API (Connect V2 & Webhooks).
 
-> See [tech_stack.md](./tech_stack.md) for a complete dependency list.
+> See [tech_stack.md](./tech_stack.md) for a detailed dependency list.
 
 ---
 
-## ⚙️ Getting Started
+## 📂 Project Structure
 
-### Prerequisites
-- Node.js 18+
-- A Supabase project
-- A Square Developer account (for POS sync)
+Key directories and files in the project:
 
-### Environment Setup
+```
+├── src/
+│   ├── app/                 # Next.js App Router pages & API routes
+│   │   ├── api/             # Backend API (e.g., Square Webhook)
+│   │   ├── inventory/       # Inventory management pages (edit, receive, etc.)
+│   │   └── page.tsx         # Main Dashboard
+│   ├── lib/                 # Shared utilities (Supabase client, analyics, formatting)
+│   ├── middleware.ts        # Next.js Middleware (Auth protection)
+│   └── migrations/          # SQL scripts for database schema changes
+├── public/                  # Static assets (images, icons)
+├── .env.local               # Environment variables (API keys)
+└── tech_stack.md            # Detailed tech documentation
+```
+
+---
+
+## ⚙️ Getting Started (Local Development)
+
+### 1. Prerequisites
+- Node.js 18+ installed.
+- A Supabase project set up.
+- A Square Developer account (optional for catalog sync).
+
+### 2. Environment Setup
 Create a `.env.local` file in the root directory:
 
 ```bash
@@ -59,17 +79,12 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Square Production
-SQUARE_ACCESS_TOKEN=your_production_access_token
-SQUARE_WEBHOOK_SECRET=your_production_webhook_signature_key
-
-# Square Sandbox (Optional for dev)
-SQUARE_ENVIRONMENT=sandbox
-SQUARE_SANDBOX_ACCESS_TOKEN=your_sandbox_token
-SQUARE_SANDBOX_WEBHOOK_SECRET=your_sandbox_webhook_key
+# Square (Optional for manual mode)
+SQUARE_ACCESS_TOKEN=your_token
+SQUARE_WEBHOOK_SECRET=your_secret
 ```
 
-### Installation
+### 3. Run Locally
 
 ```bash
 npm install
@@ -80,14 +95,34 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-## 📱 Usage
+## 🚀 Build & Deploy
+
+### Production Build
+To create an optimized production build locally:
+
+```bash
+npm run build
+npm start
+```
+
+### Deployment
+This application is designed to be deployed on platforms like **Vercel** or **Render**.
+
+1.  **Connect Repo**: Push your code to GitHub/GitLab.
+2.  **Import Project**: In Vercel/Render, import the repository.
+3.  **Environment Variables**: **CRITICAL!** You must copy all values from `.env.local` into the deployment platform's Environment Variables settings.
+4.  **Deploy**: The platform will automatically run `npm install` and `npm run build`.
+
+---
+
+## 📱 Usage Guide
 
 ### For Managers
 1.  **Dashboard**: Check "Quick Actions" for daily tasks.
-2.  **Edit Items**: Go to Inventory to set `Cost per Unit` and `Auto-Deduct` flags.
-3.  **Reports**: View the "Best Price Analysis" to compare vendors.
+2.  **Inventory**: Use "Edit" to set `Cost per Unit` for accurate profit reports.
+3.  **Reports**: Check "Best Price Analysis" to compare vendors.
 
 ### For Staff
 1.  **Tasks**: Check "My Tasks" on the home page.
 2.  **Receive**: Use "Receive Stock" when shipments arrive.
-3.  **Consume**: Log "Usage" for store supplies or identifying waste.
+3.  **Log Usage**: Use "Log Usage" -> "Manual Sale" or "Consumption" to track items leaving the shelf.
